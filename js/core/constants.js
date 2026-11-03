@@ -40,7 +40,9 @@
     HATCH_DELAY: 45,      // délai avant le premier Bidule
     RATE_MIN: 1,
     RATE_MAX: 99,
-    END_GRACE_TICKS: 20   // pause avant de déclarer la fin quand tout est résolu
+    END_GRACE_TICKS: 20,  // pause avant de déclarer la fin quand tout est résolu
+    BLAST_MAX_KILLS: 3,   // une explosion tue au plus 3 Bidules (les plus proches) : équilibrage, voir docs
+    BEAM_MAX_KILLS: 3     // le rayon orbital aussi
   });
 
   /** Intervalle (en pas) entre deux Bidules pour une cadence 1..99. */

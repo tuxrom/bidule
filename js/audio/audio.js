@@ -12,8 +12,14 @@
   'use strict';
   const NS = (G.Bidules = G.Bidules || {});
 
-  const SCALE = [0, 1, 4, 5, 7, 8, 10];            // ré phrygien dominant (demi-tons)
-  const ROOT = 38;                                  // ré 1 (note MIDI)
+  /** Une couleur musicale par univers : tonique (note MIDI), gamme (demi-tons), tempo, timbre du chant. */
+  const MUSIC = {
+    desert: { root: 38, scale: [0, 1, 4, 5, 7, 8, 10], bpm: 92, lead: 'square' },     // ré phrygien dominant
+    ruins: { root: 33, scale: [0, 2, 3, 5, 7, 8, 10], bpm: 78, lead: 'sawtooth' },    // la mineur naturel, plus lent
+    arctic: { root: 43, scale: [0, 2, 4, 6, 7, 9, 11], bpm: 70, lead: 'triangle' },   // sol lydien, aérien
+    orbital: { root: 36, scale: [0, 2, 4, 6, 8, 10, 11], bpm: 112, lead: 'square' }   // gamme par tons, arpèges vifs
+  };
+  let SCALE = MUSIC.desert.scale, ROOT = MUSIC.desert.root;
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
   class AudioEngine {
@@ -116,6 +122,15 @@
           this.tone('square', 880, 880, 0.07, 0.1, 0.06);
           this.tone('square', 1320, 1320, 0.1, 0.1, 0.12);
           break;
+        case 'recon': this.tone('sine', 400, 1600, 0.35, 0.18); this.tone('sine', 1600, 400, 0.35, 0.12, 0.35); break;
+        case 'drone': this.tone('sawtooth', 220, 330, 0.25, 0.08); this.tone('sawtooth', 224, 334, 0.25, 0.08); break;
+        case 'lock': [900, 900, 900].forEach((f, i) => this.tone('square', f, f, 0.06, 0.1, i * 0.18)); break;
+        case 'beam': this.noise(0.5, 0.8, 'highpass', 400, 6000); this.tone('sawtooth', 1800, 60, 0.5, 0.35); break;
+        case 'cannon': this.noise(0.25, 0.8, 'lowpass', 900, 120); this.tone('sine', 90, 40, 0.3, 0.7); break;
+        case 'shield': this.tone('sine', 300, 900, 0.3, 0.15); this.tone('sine', 450, 1350, 0.3, 0.08); break;
+        case 'jet': this.noise(0.12, 0.2, 'bandpass', 2500, 1500); break;
+        case 'grapple': this.tone('square', 1500, 500, 0.12, 0.1); this.tone('triangle', 200, 260, 0.2, 0.15, 0.1); break;
+        case 'tank': this.tone('sawtooth', 70, 50, 0.4, 0.3); this.noise(0.3, 0.3, 'lowpass', 400, 100); break;
         case 'win': [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone('square', f, f, 0.16, 0.16, i * 0.14)); break;
         case 'lose': [392, 349, 311, 262].forEach((f, i) => this.tone('sawtooth', f, f * 0.98, 0.25, 0.14, i * 0.2)); break;
       }
@@ -136,6 +151,20 @@
         case 'ohno': this.sfx('ohno'); break;
         case 'explode': this.sfx('explode'); break;
         case 'chute': this.sfx('chute', 0.1); break;
+        case 'recon': this.sfx('recon'); break;
+        case 'lock': this.sfx('lock'); break;
+        case 'beam': this.sfx('beam'); break;
+        case 'cannon': this.sfx('cannon'); break;
+        case 'jet': this.sfx('jet', 0.2); break;
+        case 'jetpuff': this.sfx('jet', 0.25); break;
+        case 'grapple': this.sfx('grapple'); break;
+        case 'trapoff': this.sfx('clink', 0.15); break;
+        case 'weapon':
+          if (ev.extra === 'kdrone') this.sfx('drone');
+          else if (ev.extra === 'shield') this.sfx('shield');
+          else if (ev.extra === 'tank') this.sfx('tank');
+          else if (ev.extra === 'zipline' || ev.extra === 'mine') this.sfx('brick');
+          break;
         case 'saved': this.sfx('saved', 0.08); break;
         case 'die':
           if (ev.extra === 'splat') this.sfx('splat', 0.08);
@@ -147,7 +176,11 @@
 
     /* --------------------------------- Musique --------------------------------- */
 
-    startMusic() {
+    /** Lance (ou relance dans la couleur d'un autre univers) la musique générative. */
+    startMusic(theme) {
+      const m = MUSIC[theme] || MUSIC.desert;
+      SCALE = m.scale; ROOT = m.root;
+      this.bpm = m.bpm; this.leadType = m.lead; this.theme = theme;
       if (!this.ctx || this.musicOn) return;
       this.musicOn = true;
       this.step = 0;
@@ -167,7 +200,7 @@
     schedule() {
       const c = this.ctx;
       if (!c || c.state !== 'running') return;
-      const spb = 60 / 92 / 2;                       // croche à 92 bpm
+      const spb = 60 / (this.bpm || 92) / 2;          // croche au tempo de l'univers
       while (this.nextTime < c.currentTime + 0.25) {
         this.note(this.step, this.nextTime);
         this.nextTime += spb;
@@ -200,7 +233,7 @@
       if (this.rnd() < 0.62) {
         const deg = (bar % 2 ? [0, 2, 4, 5, 6] : [0, 1, 4, 6, 3])[(this.rnd() * 5) | 0];
         const oct = this.rnd() < 0.3 ? 24 : 12;
-        this.voice('square', mtof(ROOT + oct + SCALE[deg]), t, 0.22, 0.09, 1800);
+        this.voice(this.leadType || 'square', mtof(ROOT + oct + SCALE[deg]), t, 0.22, 0.09, 1800);
       }
     }
   }

@@ -24,6 +24,10 @@
     R: '#d98b4a'   // brique
   };
 
+  /** Camp 1 (l'adversaire) : armure rouge, accents bleus, même silhouette. */
+  const PAL1 = Object.assign({}, PAL, { H: '#a83a3a', h: '#f2a29a', B: '#d8574a', b: '#a63a32', G: '#4aa3ea', L: '#5f2b2b' });
+  const PALS = [PAL, PAL1];
+
   const HEAD = ['..DDDD..', '.DHhhHD.', '.DHHVVD.', '.DHHVVD.'];
   const HEAD_FRONT = ['..DDDD..', '.DHhhHD.', '.DVVVVD.', '.DHHHHD.'];
   const TORSO = ['..DbbD..', '.DBBBBGG', '.DBbBBGG', '..DBBD..'];
@@ -55,7 +59,9 @@
     build0: frame(HEAD, ['..DbbD..', '.DBBBBGG', '.DBbBBRR', '..DBBD..'], LEGS.stand),
     build1: frame(HEAD, ['..DbbDRR', '.DBBBBGG', '.DBbBBD.', '..DBBD..'], LEGS.stand),
     block0: frame(HEAD_FRONT, ['..DbbD..', 'GGBBBBGG', '.DBbBBD.', '..DBBD..'], LEGS.stand),
-    block1: frame(['..DDDD..', '.DHhhHD.', '.DOOOOD.', '.DHHHHD.'], ['..DbbD..', 'GGBBBBGG', '.DBbBBD.', '..DBBD..'], LEGS.stand)
+    block1: frame(['..DDDD..', '.DHhhHD.', '.DOOOOD.', '.DHHHHD.'], ['..DbbD..', 'GGBBBBGG', '.DBbBBD.', '..DBBD..'], LEGS.stand),
+    climb0: frame(HEAD, ['..DbbDGG', '.DBBBBG.', '.DBbBB..', '..DBBD..'], ['..L.L...', '..L..L..']),
+    climb1: frame(HEAD, ['..DbbD..', '.DBBBBGG', '.DBbBBG.', '..DBBD..'], ['...LL...', '..L..L..'])
   };
 
   /** Mini police 3x5 pour les chiffres du compte à rebours. */
@@ -74,14 +80,14 @@
   }
 
   /** Rasterise une carte de pixels ; `flip` la retourne horizontalement. */
-  function rasterize(map, flip) {
+  function rasterize(map, flip, pal) {
     const h = map.length, w = map[0].length;
     const c = makeCanvas(w, h), g = c.getContext('2d');
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const ch = map[y][flip ? w - 1 - x : x];
         if (ch === '.') continue;
-        g.fillStyle = PAL[ch];
+        g.fillStyle = pal[ch];
         g.fillRect(x, y, 1, 1);
       }
     }
@@ -89,13 +95,14 @@
   }
 
   const Sprites = {
-    frames: {},          // nom -> {r, l}
+    frames: [{}, {}],    // frames[camp][nom] -> {r, l}
     parachute: null,
-    cactus: null,
 
     build() {
-      for (const name of Object.keys(MAPS)) {
-        this.frames[name] = { r: rasterize(MAPS[name], false), l: rasterize(MAPS[name], true) };
+      for (let team = 0; team < 2; team++) {
+        for (const name of Object.keys(MAPS)) {
+          this.frames[team][name] = { r: rasterize(MAPS[name], false, PALS[team]), l: rasterize(MAPS[name], true, PALS[team]) };
+        }
       }
       // Parachute : voile rouge et crème.
       const pm = ['....RRRRRR....', '..RRWRRRRWRR..', '.RRWRRRRRRWRR.', 'RRWRRRRRRRRWRR', 'D.D..D..D..D.D'];
@@ -105,11 +112,6 @@
         if (ch !== '.') { pg.fillStyle = pal[ch]; pg.fillRect(x, y, 1, 1); }
       }));
       this.parachute = pc;
-      // Cactus.
-      const cc = makeCanvas(11, 16), cg = cc.getContext('2d');
-      cg.fillStyle = '#2f6b3a'; cg.fillRect(4, 0, 3, 16); cg.fillRect(0, 6, 4, 2); cg.fillRect(0, 3, 2, 4); cg.fillRect(7, 8, 4, 2); cg.fillRect(9, 5, 2, 4);
-      cg.fillStyle = '#4e9a55'; cg.fillRect(5, 0, 1, 16); cg.fillRect(0, 3, 1, 4); cg.fillRect(10, 5, 1, 4);
-      this.cactus = cc;
     },
 
     /** Choisit l'image d'un Bidule selon son état et son horloge d'animation. */
@@ -126,6 +128,8 @@
           if (b.phase === 2) return 'stand';
           return 'walk' + (Math.floor(t / 3) % 4);
         case 'block': return 'block' + (Math.floor(t / 14) % 2);
+        case 'climb': return 'climb' + (Math.floor(t / 6) % 2);
+        case 'jet': case 'zip': case 'grapple': return 'fall';
         default: return 'stand';
       }
     },
@@ -146,8 +150,8 @@
     /** Icône 16x16 d'une compétence pour la barre d'outils. */
     icon(skillId) {
       const c = makeCanvas(16, 16), g = c.getContext('2d');
-      const name = { blocker: 'block0', builder: 'build1', digger: 'dig0', miner: 'mine0', basher: 'bash0', floater: 'fall', bomber: 'stand' }[skillId] || 'stand';
-      g.drawImage(this.frames[name].r, 4, 5);
+      const name = { blocker: 'block0', builder: 'build1', digger: 'dig0', miner: 'mine0', basher: 'bash0', climber: 'climb0', floater: 'fall', bomber: 'stand' }[skillId] || 'stand';
+      g.drawImage(this.frames[0][name].r, 4, 5);
       if (skillId === 'floater') g.drawImage(this.parachute, 1, 0);
       if (skillId === 'bomber') {          // bombe ronde à mèche
         g.fillStyle = '#17303a'; g.fillRect(10, 8, 5, 5); g.fillRect(9, 9, 7, 3);
@@ -161,6 +165,30 @@
       }
       return c;
     }
+  };
+
+  /**
+   * Pictogrammes 16x16 des armes pour la barre d'arsenal : listes de rectangles
+   * [couleur, x, y, largeur, hauteur] dessinés dans l'ordre.
+   */
+  const WEAPON_ICONS = {
+    recon: [['#17303a', 4, 7, 8, 3], ['#6df0ff', 5, 7, 6, 2], ['#cfd8dc', 1, 5, 5, 1], ['#cfd8dc', 10, 5, 5, 1], ['#6df0ff', 6, 11, 4, 1], ['#6df0ff', 4, 13, 8, 1], ['#6df0ff', 2, 15, 12, 1]],
+    kdrone: [['#17303a', 4, 4, 8, 3], ['#3fb6c9', 5, 4, 6, 2], ['#cfd8dc', 1, 2, 5, 1], ['#cfd8dc', 10, 2, 5, 1], ['#17303a', 6, 9, 4, 4], ['#ff8a1f', 7, 10, 2, 2], ['#ffd23f', 8, 8, 1, 1]],
+    satellite: [['#5a6a8a', 1, 3, 4, 3], ['#5a6a8a', 11, 3, 4, 3], ['#cfd8dc', 5, 3, 6, 3], ['#ff5a5a', 7, 6, 2, 9], ['#fff1a8', 7, 14, 2, 2]],
+    cannon: [['#17303a', 2, 12, 12, 3], ['#2e8fa3', 3, 11, 10, 2], ['#17303a', 7, 6, 3, 3], ['#8fa3ad', 8, 4, 3, 3], ['#8fa3ad', 10, 2, 3, 3], ['#ffd23f', 13, 1, 2, 2]],
+    shield: [['#6df0ff', 3, 5, 10, 1], ['#6df0ff', 2, 6, 12, 1], ['#6df0ff', 1, 7, 14, 1], ['#6df0ff', 1, 8, 2, 6], ['#6df0ff', 13, 8, 2, 6], ['rgba(110,220,255,0.35)', 3, 8, 10, 6], ['#17303a', 6, 10, 4, 4]],
+    zipline: [['#dfe7ea', 2, 3, 2, 1], ['#dfe7ea', 4, 4, 2, 1], ['#dfe7ea', 6, 5, 2, 1], ['#dfe7ea', 8, 6, 2, 1], ['#dfe7ea', 10, 7, 2, 1], ['#dfe7ea', 12, 8, 2, 1], ['#17303a', 1, 2, 2, 5], ['#17303a', 13, 7, 2, 7], ['#ffd23f', 7, 6, 2, 3]],
+    jetpack: [['#2e8fa3', 5, 2, 6, 7], ['#3fb6c9', 6, 3, 4, 4], ['#ffd23f', 6, 4, 2, 1], ['#8fa3ad', 3, 5, 2, 5], ['#ffd23f', 3, 10, 2, 2], ['#ff7a1a', 3, 12, 2, 3]],
+    grapple: [['#dfe7ea', 3, 12, 1, 3], ['#dfe7ea', 4, 9, 1, 3], ['#dfe7ea', 5, 6, 1, 3], ['#17303a', 5, 2, 7, 2], ['#8fa3ad', 10, 2, 2, 7], ['#8fa3ad', 7, 7, 5, 2]],
+    mine: [['#17303a', 3, 9, 10, 3], ['#17303a', 5, 7, 6, 2], ['#4a5a62', 4, 10, 8, 1], ['#ff4a3a', 7, 4, 2, 3], ['#ffd23f', 7, 3, 2, 1]],
+    tank: [['#17303a', 1, 11, 14, 3], ['#4a5a62', 2, 12, 12, 1], ['#2e8fa3', 3, 8, 10, 3], ['#3fb6c9', 5, 5, 6, 3], ['#17303a', 10, 6, 5, 1], ['#ffd23f', 14, 5, 1, 1]]
+  };
+
+  /** Icône 16x16 d'une arme pour la barre d'arsenal. */
+  Sprites.weaponIcon = function (id) {
+    const c = makeCanvas(16, 16), g = c.getContext('2d');
+    for (const [col, x, y, w, h] of WEAPON_ICONS[id] || []) { g.fillStyle = col; g.fillRect(x, y, w, h); }
+    return c;
   };
 
   NS.Sprites = Sprites;

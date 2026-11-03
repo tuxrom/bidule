@@ -1,8 +1,8 @@
 /**
  * hud.js
  * Interface en HTML/CSS par-dessus le canvas : compteurs, barre de
- * compétences, boutons. Le DOM n'est modifié que lorsqu'une valeur change,
- * pour ne pas coûter de temps de mise en page à chaque image.
+ * compétences, arsenal, panneau du canon, boutons. Le DOM n'est modifié que
+ * lorsqu'une valeur change, pour ne pas coûter de mise en page à chaque image.
  */
 (function (G) {
   'use strict';
@@ -23,6 +23,7 @@
     constructor() {
       this.cache = {};
       this.skillButtons = {};
+      this.armButtons = {};
       this.buildSkillbar();
       $('btn-undo').innerHTML = ICONS.undo;
       $('btn-menu').innerHTML = ICONS.menu;
@@ -39,13 +40,34 @@
         b.className = 'btn skill';
         b.dataset.skill = s.id;
         b.setAttribute('aria-label', s.label);
-        const icon = NS.Sprites.icon(s.id);
-        b.appendChild(icon);
+        b.appendChild(NS.Sprites.icon(s.id));
         b.insertAdjacentHTML('beforeend',
           '<span class="lbl">' + s.label + '</span><span class="cnt">0</span><span class="key">' + (i + 1) + '</span>');
         bar.appendChild(b);
         this.skillButtons[s.id] = { el: b, cnt: b.querySelector('.cnt') };
       });
+    }
+
+    /** Arsenal du niveau : seules les armes débloquées ont un bouton. */
+    buildArmbar(sim) {
+      const bar = $('armbar');
+      bar.innerHTML = '';
+      this.armButtons = {};
+      const p = sim.players[0];
+      NS.Weapons.list.filter((w) => p.weapons[w.id]).forEach((w, i) => {
+        const b = document.createElement('button');
+        b.className = 'btn arm';
+        b.dataset.weapon = w.id;
+        b.title = w.label + ' : ' + w.cost + ' pts, recharge ' + Math.round(w.cooldown / NS.C.TICK_RATE) + ' s';
+        b.setAttribute('aria-label', w.label);
+        b.appendChild(NS.Sprites.weaponIcon(w.id));
+        b.insertAdjacentHTML('beforeend',
+          '<span class="lbl">' + w.label + '</span><span class="cnt">0</span><span class="cost">' + w.cost + '</span><span class="key">' + ((i + 1) % 10) + '</span><i class="cd"></i>');
+        bar.appendChild(b);
+        this.armButtons[w.id] = { el: b, cnt: b.querySelector('.cnt'), cd: b.querySelector('.cd') };
+      });
+      bar.style.setProperty('--n', Math.max(1, Object.keys(this.armButtons).length));
+      $('btn-tab').hidden = Object.keys(this.armButtons).length === 0;
     }
 
     set(id, html) {
@@ -68,27 +90,70 @@
       $('btn-x4').classList.toggle('on', s === 4);
     }
 
+    /** Bascule entre compétences et arsenal. */
+    setTab(tab) {
+      $('skillbar').hidden = tab !== 'skills';
+      $('armbar').hidden = tab !== 'arms';
+      $('btn-tab').textContent = tab === 'skills' ? 'Arsenal' : 'Compétences';
+      $('btn-tab').classList.toggle('on', tab === 'arms');
+    }
+
+    /** Panneau de réglage du canon (angle, puissance). */
+    showAim(on, angle, power) {
+      $('aimpanel').hidden = !on;
+      if (on) {
+        $('aim-angle').value = angle; $('aim-power').value = power;
+        $('aim-angle-v').textContent = Math.round(angle) + '°'; $('aim-power-v').textContent = Math.round(power);
+      }
+    }
+
     /** Rafraîchit compteurs et boutons depuis l'état de la simulation. */
-    update(sim, selected, canUndo) {
-      const pct = sim.count ? Math.floor((sim.saved * 100) / sim.count) : 0;
-      this.set('st-alive', String(sim.bidules.length));
-      this.set('st-out', sim.released + '/' + sim.count);
-      this.set('st-saved', pct + '% / ' + sim.def.goal + '%');
-      $('st-saved').classList.toggle('ok', sim.saved >= sim.needed);
+    update(sim, ui) {
+      const me = sim.players[0], vs = sim.mode === 'vs';
+      this.set('st-alive', String(sim.bidules.filter((b) => b.owner === 0).length));
+      this.set('st-out', me.released + '/' + me.count);
+      if (vs) {
+        const o = sim.players[1];
+        this.set('st-saved', me.saved + ' : ' + o.saved);
+        $('st-saved').classList.toggle('ok', me.saved > o.saved);
+      } else {
+        const pct = me.count ? Math.floor((me.saved * 100) / me.count) : 0;
+        this.set('st-saved', pct + '% / ' + me.goal + '%');
+        $('st-saved').classList.toggle('ok', me.saved >= me.needed);
+      }
+      $('lbl-saved').textContent = vs ? 'Score' : 'Sauvés';
       const left = sim.timeLeft();
       this.set('st-time', Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0'));
       $('st-time').classList.toggle('low', left <= 30);
-      this.set('st-rate', String(sim.rate));
+      this.set('st-rate', String(me.rate));
+      this.set('st-points', String(Math.floor(me.points)));
       for (const s of NS.Skills.list) {
         const e = this.skillButtons[s.id];
-        const n = sim.skills[s.id] | 0;
+        const n = me.skills[s.id] | 0;
         if (e.cnt.textContent !== String(n)) e.cnt.textContent = n;
         e.el.disabled = n <= 0;
-        e.el.classList.toggle('on', s.id === selected);
+        e.el.classList.toggle('on', ui.tab === 'skills' && s.id === ui.skill);
       }
-      $('btn-undo').disabled = !canUndo;
-      $('btn-rate-dec').disabled = sim.rate <= sim.rateMin;
-      $('btn-rate-inc').disabled = sim.rate >= NS.C.RATE_MAX;
+      for (const w of NS.Weapons.list) {
+        const e = this.armButtons[w.id];
+        if (!e) continue;
+        const slot = me.weapons[w.id];
+        if (e.cnt.textContent !== String(slot.stock)) e.cnt.textContent = slot.stock;
+        const frac = slot.cd > 0 ? Math.min(1, slot.cd / w.cooldown) : 0;
+        e.cd.style.height = (frac * 100).toFixed(0) + '%';
+        e.el.disabled = slot.stock <= 0;
+        e.el.classList.toggle('poor', me.points < w.cost && slot.stock > 0);
+        e.el.classList.toggle('cooling', slot.cd > 0);
+        e.el.classList.toggle('on', ui.tab === 'arms' && w.id === ui.weapon);
+      }
+      $('btn-undo').disabled = !ui.canUndo;
+      $('btn-undo').hidden = vs;
+      $('btn-rate-dec').disabled = me.rate <= me.rateMin;
+      $('btn-rate-inc').disabled = me.rate >= NS.C.RATE_MAX;
+      $('btn-boom').hidden = !ui.canBoom;
+      const rev = Math.max(0, Math.ceil((me.revealUntil - sim.tick) / NS.C.TICK_RATE));
+      $('reveal-badge').hidden = rev <= 0;
+      if (rev > 0) $('reveal-badge').textContent = 'Reconnaissance ' + rev + ' s';
     }
 
     setLevelName(name) { $('st-name').textContent = name; }

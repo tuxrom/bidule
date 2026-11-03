@@ -155,6 +155,14 @@
   NS.Behaviors.wait = function (b, sim) {
     b.t++;
     if (!sim.terrain.isSolid(b.x, b.y + 1)) { Physics.startFall(b); return; }
+    // File d'attente : deux Bidules qui attendent au même endroit s'écartent de 3 pixels (le plus récent recule),
+    // pour qu'une grappe ne se jette pas d'un seul bloc dans un gouffre et ne meure pas sous une seule explosion.
+    for (const o of sim.bidules) {
+      if (o === b || o.owner !== b.owner || o.state !== 'wait' || o.id > b.id || Math.abs(o.y - b.y) > 3 || Math.abs(o.x - b.x) > 2) continue;
+      const bx = b.x - b.n;
+      if (sim.terrain.freeColumn(bx, b.y, NS.C.BODY_H) && sim.terrain.isSolid(bx, b.y + 1)) b.x = bx;
+      break;
+    }
     for (const o of sim.obstacles) {
       if (o.owner !== b.owner || o.state === 'block' || o === b || Math.abs(o.y - b.y) > 30) continue;
       const ahead = (o.x - b.x) * b.n;

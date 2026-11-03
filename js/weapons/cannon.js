@@ -40,9 +40,27 @@
       (x, y) => y > t.h + 40 || x < -40 || x > t.w + 40 || t.isSolid(x, y), visit);
   }
 
+  /**
+   * Cherche l'angle et la puissance dont l'impact tombe le plus près de (tx, ty).
+   * Sert à l'IA et à l'interface du joueur (toucher la carte pour viser).
+   * @returns {{angle, power, d, x, y, t}|null}
+   */
+  function solve(sim, p, tx, ty) {
+    let best = null;
+    for (let a = 20; a <= 78; a += 2) {
+      for (let pw = 15; pw <= 100; pw += 3) {
+        const r = trajectory(sim, p, a, pw);
+        if (!r.hit) continue;
+        const d = Math.abs(r.x - tx) + Math.abs(r.y - ty) * 0.5;
+        if (!best || d < best.d) best = { angle: a, power: pw, d, x: r.x, y: r.y, t: r.t };
+      }
+    }
+    return best;
+  }
+
   NS.Weapons.register({
     id: 'cannon', label: 'Canon César', cost: 35, cooldown: 600, stock: 4, target: 'aim', kind: 'shell',
-    trajectory, launch,
+    trajectory, launch, solve,
     validate(sim, p, cmd) {
       if (!p.cannon) return 'Pas de canon sur cette carte';
       if (!(cmd.angle >= 5 && cmd.angle <= 85)) return 'Angle invalide';

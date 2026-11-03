@@ -12,9 +12,10 @@
     <!-- Barre d'état : niveau, compteurs, chronomètre, son, menu -->
     <header id="topbar">
       <div class="stat stat-name"><span>Niveau</span><b id="st-name">-</b></div>
-      <div class="stat"><span>En jeu</span><b id="st-alive">0</b></div>
+      <div class="stat stat-alive"><span>En jeu</span><b id="st-alive">0</b></div>
       <div class="stat"><span>Sortis</span><b id="st-out">0/0</b></div>
-      <div class="stat"><span>Sauvés</span><b id="st-saved">0%</b></div>
+      <div class="stat"><span id="lbl-saved">Sauvés</span><b id="st-saved">0%</b></div>
+      <div class="stat stat-pts"><span>Points</span><b id="st-points">0</b></div>
       <div class="stat"><span>Temps</span><b id="st-time">0:00</b></div>
       <button id="btn-mute" class="btn icon" aria-label="Couper le son" title="Son (M)"></button>
       <button id="btn-menu" class="btn icon" aria-label="Menu" title="Menu (Échap)"></button>
@@ -25,12 +26,21 @@
       <canvas id="game"></canvas>
       <div id="toast" role="status"></div>
       <div id="pause-badge">PAUSE</div>
+      <div id="reveal-badge" hidden></div>
+      <button id="btn-boom" class="btn" hidden>Détoner</button>
+      <div id="aimpanel" hidden>
+        <label>Angle <input type="range" id="aim-angle" min="5" max="85" value="45"><b id="aim-angle-v">45°</b></label>
+        <label>Puissance <input type="range" id="aim-power" min="0" max="100" value="60"><b id="aim-power-v">60</b></label>
+        <button id="btn-fire" class="btn primary">Tirer</button>
+      </div>
     </main>
 
     <!-- Barre d'outils : compétences puis commandes -->
     <footer id="bottombar">
       <div id="skillbar"></div>
+      <div id="armbar" hidden></div>
       <div id="toolbar">
+        <button id="btn-tab" class="btn tool" hidden title="Compétences / Arsenal (Tab)">Arsenal</button>
         <div class="rate">
           <button id="btn-rate-dec" class="btn tool" aria-label="Ralentir la trappe">-</button>
           <div class="rate-val"><span>Cadence</span><b id="st-rate">50</b></div>
@@ -50,8 +60,10 @@
   <!-- Modules : scripts classiques (pas de modules ES, pour fonctionner en file://). Ordre = dépendances. -->
   <script src="js/core/constants.js"></script>
   <script src="js/core/rng.js"></script>
+  <script src="js/core/mathx.js"></script>
   <script src="js/engine/terrain.js"></script>
   <script src="js/skills/registry.js"></script>
+  <script src="js/weapons/registry.js"></script>
   <script src="js/bidules/bidule.js"></script>
   <script src="js/skills/blocker.js"></script>
   <script src="js/skills/builder.js"></script>
@@ -60,12 +72,28 @@
   <script src="js/skills/basher.js"></script>
   <script src="js/skills/floater.js"></script>
   <script src="js/skills/bomber.js"></script>
+  <script src="js/skills/climber.js"></script>
+  <script src="js/weapons/recon.js"></script>
+  <script src="js/weapons/kdrone.js"></script>
+  <script src="js/weapons/satellite.js"></script>
+  <script src="js/weapons/cannon.js"></script>
+  <script src="js/weapons/shield.js"></script>
+  <script src="js/weapons/zipline.js"></script>
+  <script src="js/weapons/jetpack.js"></script>
+  <script src="js/weapons/grapple.js"></script>
+  <script src="js/weapons/mine.js"></script>
+  <script src="js/weapons/tank.js"></script>
   <script src="js/levels/loader.js"></script>
   <script src="js/levels/level1.js"></script>
   <script src="js/levels/level2.js"></script>
   <script src="js/levels/level3.js"></script>
+  <script src="js/levels/generator.js"></script>
   <script src="js/engine/simulation.js"></script>
+  <script src="js/levels/campaign.js"></script>
+  <script src="js/ai/pathfinder.js"></script>
+  <script src="js/ai/ai.js"></script>
   <script src="js/render/sprites.js"></script>
+  <script src="js/render/themes.js"></script>
   <script src="js/render/camera.js"></script>
   <script src="js/render/particles.js"></script>
   <script src="js/render/renderer.js"></script>

@@ -235,12 +235,21 @@
       // `lift` relève le centre du cratère : une calotte peu profonde, aux flancs praticables à pied
       // (un cratère entier de rayon r serait un puits de r pixels, infranchissable).
       if (opts.carve !== false) this.terrain.carveCircle(x, y - (opts.lift || 0), r, this.rng, !!opts.rock);
+      // Victimes : les plus proches d'abord, plafonnées (équilibrage : une grappe de Bidules empilés
+      // ne doit pas disparaître en entier sous une seule explosion).
+      const hit = [];
       for (const b of this.bidules) {
         if (b.state === 'dead' || b.state === 'saved' || b.state === 'rider') continue;
-        const dx = b.x - x, dy = b.y - 4 - y, rr = r + 2;
-        if (dx * dx + dy * dy <= rr * rr && !this.shielded(b)) NS.Physics.die(b, this, opts.cause || 'blast', opts.owner);
+        const dx = b.x - x, dy = b.y - 4 - y, rr = r + 2, d2 = dx * dx + dy * dy;
+        if (d2 <= rr * rr && !this.shielded(b)) hit.push({ b, d2 });
       }
+      hit.sort((p, q) => p.d2 - q.d2 || p.b.id - q.b.id);
+      for (let i = 0; i < Math.min(hit.length, C.BLAST_MAX_KILLS); i++) NS.Physics.die(hit[i].b, this, opts.cause || 'blast', opts.owner);
       this.defuseTraps(x - r, y - r, x + r, y + r);
+      // Une explosion détruit les mines posées dans son rayon (sans les faire sauter).
+      for (const e of this.entities) {
+        if (e.kind === 'mine' && (e.x - x) * (e.x - x) + (e.y - y) * (e.y - y) <= r * r && e.owner !== opts.owner) e.dead = true;
+      }
       this.emit('explode', x, y, r);
     }
 

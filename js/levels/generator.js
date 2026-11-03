@@ -259,7 +259,7 @@
     }
     // Le parcours d'une armée traverse les deux moitiés : les besoins du plan sont doublés, plus une marge.
     const need = (k) => L.plan.filter((r) => r.skill === k).length * 2;
-    const skills = { blocker: 3, builder: need('builder') + 3, digger: 2, miner: 2, basher: need('basher') + 3, floater: 3, climber: 3, bomber: 3 };
+    const skills = { blocker: 3, builder: need('builder') * 2 + 4, digger: 2, miner: 2, basher: need('basher') * 2 + 3, floater: 3, climber: 3, bomber: 3 };
     const weapons = {};
     for (const w of NS.Weapons.list) weapons[w.id] = w.stock;
     const def = {
@@ -267,7 +267,7 @@
       hint: 'Ton armée part à gauche, celle de l\'ordinateur à droite. Sauve plus de Bidules que lui.',
       width: W, height: H, seed: o.seed,
       timeLimit: 330, fog: true, traps, decor, terrain: ops,
-      skills, weapons, points: { start: 100, regen: 1 }, rate: { min: 20, start: 45 },
+      skills, weapons, points: { start: 100, regen: 0.5 }, rate: { min: 20, start: 45 },
       count: o.count || 24, goal: 0,
       players: [
         { hatch: { x: 90, y: gy - 30, dir: 1 }, exit: { x: W - 70, y: gy - 1 }, cannon: { x: 50, y: gy - 1, dir: 1 } },

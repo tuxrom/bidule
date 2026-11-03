@@ -29,7 +29,7 @@
   const TOOLS = ['builder', 'basher', 'miner'];
   const TOOL_COST = { builder: 40, basher: 30, miner: 60 };
   const LOOKAHEAD = 45;        // distance à laquelle un obstacle déclenche l'essai des outils
-  const SAMPLE = 2;            // on n'essaie les outils que tous les 2 pixels
+  const SAMPLE = 3;            // on n'essaie les outils que tous les 3 pixels
   const MAX_EXPAND = 9000;     // garde-fou : nœuds développés au plus
   const key = (x, y, d) => ((y * 4096 + x) << 1) | (d > 0 ? 1 : 0);
 
@@ -94,18 +94,18 @@
     return { ok: true, y, dist };
   }
 
-  /** Cherche un obstacle (mur ou chute mortelle) dans les `n` pas devant (x, y, dir). */
+  /** Premier obstacle dans les `n` pas devant (x, y, dir) : 'wall', 'gap' (chute mortelle ou liquide) ou null. */
   function blockedAhead(t, x, y, dir, n) {
     for (let i = 0; i < n; i++) {
       const s = stepWalk(t, x, y, dir);
-      if (s.kind === 'wall') return true;
+      if (s.kind === 'wall') return 'wall';
       if (s.kind === 'fall') {
         const l = fallLand(t, s.x, s.y);
-        if (!l.ok) return true;
+        if (!l.ok) return 'gap';
         x = s.x; y = l.y;
       } else { x = s.x; y = s.y; }
     }
-    return false;
+    return null;
   }
 
   /**
@@ -228,11 +228,13 @@
 
       // Outils, seulement près d'un obstacle et tous les SAMPLE pixels.
       // Le mineur sert aussi à quitter une route qui mène à une chute mortelle plus loin (tous les 12 px).
-      const near = tools.length && n.x % SAMPLE === 0 && blockedAhead(t, n.x, n.y, n.dir, LOOKAHEAD);
+      // Un gouffre n'appelle que le bâtisseur ; un mur, n'importe quel outil.
+      const near = tools.length && n.x % SAMPLE === 0 ? blockedAhead(t, n.x, n.y, n.dir, LOOKAHEAD) : null;
       const far = tools.length && !near && n.x % 12 === 0 && tools.includes('miner') && deathAhead(t, n.x, n.y, n.dir, 600) !== null;
       if (near || far) {
         for (const skill of tools) {
           if (!near && skill !== 'miner') continue;
+          if (near === 'gap' && skill !== 'builder') continue;
           const tk = key(n.x, n.y, n.dir) * 8 + TOOLS.indexOf(skill);
           let r = trials.get(tk);
           if (r === undefined) { r = trySkill(sim, n, skill, pi); trials.set(tk, r); }

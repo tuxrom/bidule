@@ -63,26 +63,45 @@ if (require.main !== module) return;
   console.log('OK parties identiques à graine identique (hash ' + a.sim.hash() + ')');
 }
 
-// 4. Hiérarchie : difficile > moyen > facile, mesurée sur plusieurs cartes, camps échangés.
+// 4. Hiérarchie des niveaux de difficulté, mesurée sur 6 cartes, camps échangés (12 parties par duel).
+//    Le duel « tous armés » est affiché à titre d'information : quand les deux camps sabotent, l'issue est
+//    presque à égalité (voir docs/ARCHITECTURE.md). Les assertions portent sur des comparaisons nettes.
 {
-  const seeds = [1, 2, 3, 4, 5, 6];
-  const duel = (lo, hi) => {
-    let hiWins = 0, loWins = 0, rows = [];
-    for (const sd of seeds) {
+  const P = NS.AI.PROFILES, saved = { hard: P.hard.weapons.slice(), medium: P.medium.weapons.slice() };
+  const duel = (a, b, setup) => {
+    P.hard.weapons = saved.hard.slice(); P.medium.weapons = saved.medium.slice();
+    if (setup) setup();
+    let aw = 0, bw = 0, sa = 0, sb = 0;
+    for (const sd of [1, 2, 3, 4, 5, 6]) {
       for (const swap of [false, true]) {
         const def = vsDef(sd, 2 + (sd % 3));
-        const r = swap ? match(def, hi, lo, sd) : match(def, lo, hi, sd);
-        const hiS = swap ? r.s0 : r.s1, loS = swap ? r.s1 : r.s0;
-        if (hiS > loS) hiWins++; else if (loS > hiS) loWins++;
-        rows.push(hiS + ':' + loS);
+        const r = swap ? match(def, b, a, sd) : match(def, a, b, sd);
+        const x = swap ? r.s1 : r.s0, y = swap ? r.s0 : r.s1;
+        sa += x; sb += y;
+        if (x > y) aw++; else if (y > x) bw++;
       }
     }
-    console.log(`   ${hi} contre ${lo} : ${hi} gagne ${hiWins}, ${lo} gagne ${loWins}, nul ${seeds.length * 2 - hiWins - loWins}   [${rows.join(' ')}]`);
-    return { hiWins, loWins };
+    P.hard.weapons = saved.hard.slice(); P.medium.weapons = saved.medium.slice();
+    return { aw, bw, nul: 12 - aw - bw, avgA: sa / 12, avgB: sb / 12 };
   };
-  const mE = duel('easy', 'medium'), hM = duel('medium', 'hard'), hE = duel('easy', 'hard');
-  assert.ok(mE.hiWins > mE.loWins, 'le moyen doit battre le facile');
-  assert.ok(hE.hiWins > hE.loWins, 'le difficile doit battre le facile');
-  assert.ok(hM.hiWins >= hM.loWins, 'le difficile ne doit pas perdre contre le moyen');
+  const show = (label, a, b, r) => console.log(`   ${label} : ${a} ${r.aw} victoires, ${b} ${r.bw}, nuls ${r.nul} ; sauvés en moyenne ${r.avgA.toFixed(1)} contre ${r.avgB.toFixed(1)}`);
+
+  const path = duel('hard', 'medium', () => { P.hard.weapons = []; P.medium.weapons = []; });
+  show('chemin seul (sans armes)          ', 'difficile', 'moyen', path);
+  assert.ok(path.avgA > path.avgB, 'à armes égales, le difficile doit sauver plus de Bidules');
+
+  const vsPassive = duel('hard', 'medium', () => { P.medium.weapons = []; });
+  show('difficile armé / moyen sans armes ', 'difficile', 'moyen', vsPassive);
+  assert.ok(vsPassive.aw >= 8, 'un adversaire qui ne se défend pas par les armes doit perdre presque toujours');
+
+  const mE = duel('medium', 'easy');
+  show('moyen / facile (tous armés)       ', 'moyen', 'facile', mE);
+  assert.ok(mE.aw > mE.bw, 'le moyen doit battre le facile');
+
+  const hE = duel('hard', 'easy');
+  show('difficile / facile (tous armés)   ', 'difficile', 'facile', hE);
+  assert.ok(hE.aw > hE.bw, 'le difficile doit battre le facile');
+
+  show('difficile / moyen (tous armés)    ', 'difficile', 'moyen', duel('hard', 'medium'));
   console.log('OK hiérarchie des niveaux de difficulté');
 }

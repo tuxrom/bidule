@@ -17,9 +17,9 @@
  *    pixels), aucune planification : elle regarde 20 px devant chaque Bidule et
  *    réagit à un mur ou à un gouffre ; 25 % d'erreurs ; un seul type d'arme
  *    (le canon), visé approximativement ;
- *  - moyen   : plan A* recalculé toutes les 8 s, bonne précision, canon,
+ *  - moyen   : plan A* recalculé toutes les 12 s, bonne précision, canon,
  *    drone kamikaze, mine et bouclier employés à bon escient ;
- *  - difficile : plan A* toutes les 4 s, reconnaissance puis frappes combinées
+ *  - difficile : plan A* toutes les 7 s, reconnaissance puis frappes combinées
  *    (drone, satellite, canon avec tir anticipé), mines posées devant l'adversaire,
  *    bouclier contre les obus, rayons et drones, et lecture des ordres adverses
  *    pour viser les ouvrages que le joueur construit.
@@ -35,11 +35,11 @@
       weapons: ['cannon'], aimTolerance: 70, reserve: 0
     },
     medium: {
-      think: 4, lag: 3, err: 0.04, planner: true, maxActions: 2, replan: 240, weaponEvery: 60, anticipate: false,
+      think: 4, lag: 3, err: 0.04, planner: true, maxActions: 2, replan: 360, weaponEvery: 60, anticipate: false,
       weapons: ['cannon', 'kdrone', 'mine', 'shield'], aimTolerance: 34, reserve: 10
     },
     hard: {
-      think: 2, lag: 1, err: 0, planner: true, maxActions: 2, replan: 120, weaponEvery: 30, anticipate: true,
+      think: 2, lag: 1, err: 0, planner: true, maxActions: 2, replan: 200, weaponEvery: 30, anticipate: true,
       weapons: ['recon', 'kdrone', 'satellite', 'cannon', 'shield', 'mine'], aimTolerance: 22, reserve: 15
     }
   };
@@ -90,7 +90,7 @@
       if (sim.status !== 'running' || sim.tick < this.nextThink) return;
       this.nextThink = sim.tick + this.prof.think;
       this.watchEnemy();
-      if (this.prof.planner) this.planned(); else this.reactive();
+      if (this.prof.planner) { this.safety(); this.planned(); } else this.reactive();
       this.pilot();
       this.mines();
       if (sim.tick >= this.nextWeapon) { this.nextWeapon = sim.tick + this.prof.weaponEvery; this.weapons(); }
@@ -147,6 +147,30 @@
       }
     }
 
+    /**
+     * Réflexes (moyen et difficile). Un trou ou un mur peut surgir à tout moment (frappe adverse) :
+     *  - si l'obstacle apparaît dans les 70 px devant le Bidule de tête, on replanifie sans attendre ;
+     *  - si un gouffre mortel est à moins de 14 px et qu'aucun outil n'est prévu là, un Bidule se sacrifie
+     *    en bloqueur pour retenir le flot (le plan prendra le relais derrière lui).
+     */
+    safety() {
+      const sim = this.sim, t = sim.terrain, P = NS.Pathfinder;
+      let lead = null;
+      for (const b of this.own()) if (b.state === 'walk' && (!lead || this.progress(b) > this.progress(lead))) lead = b;
+      if (!lead) return;
+      t.setViewer(this.pi);
+      let ahead, danger;
+      try { ahead = P.blockedAhead(t, lead.x, lead.y, lead.dir, 70); danger = P.blockedAhead(t, lead.x, lead.y, lead.dir, 14) === 'gap'; } finally { t.setViewer(2); }
+      const planned = this.plan && this.plan.actions.some((a) => (a.x - lead.x) * lead.dir >= -2 && (a.x - lead.x) * lead.dir <= 70);
+      if (ahead && !planned && sim.tick - (this.lastPlanTick || 0) > 40) { this.replan(); return; }
+      const worker = this.own().some((b) => b.state === 'build' || b.state === 'mine' || b.state === 'bash');
+      const toolSoon = this.plan && this.plan.actions.some((a) => (a.x - lead.x) * lead.dir >= -2 && (a.x - lead.x) * lead.dir <= 20);
+      if (danger && !worker && !toolSoon && !this.issuedRecently('blocker', lead.x) && (this.player.skills.blocker | 0) > 0) {
+        this.issued.push({ skill: 'blocker', x: lead.x, tick: sim.tick });
+        this.cmd({ type: 'assign', id: lead.id, skill: 'blocker' });
+      }
+    }
+
     /** Moyen et difficile : plan A* partiel, exécuté dès que les Bidules arrivent au bon endroit. */
     planned() {
       const sim = this.sim;
@@ -154,7 +178,8 @@
       // partirait d'un suiveur arrêté derrière l'ouvrier. On replanifie 20 pas après sa fin.
       const busy = this.own().some((b) => b.state === 'build' || b.state === 'bash' || b.state === 'mine');
       if (busy) this.nextReplan = Math.max(this.nextReplan, sim.tick + 20);
-      if (!this.plan || (!busy && sim.tick >= this.nextReplan)) this.replan();
+      const spent = this.plan && this.plan.actions.length > 0 && this.plan.actions.every((a) => this.issuedRecently(a.skill, a.x));
+      if (!this.plan || (!busy && (sim.tick >= this.nextReplan || spent))) this.replan();
       for (const a of this.plan.actions) {
         if (this.issuedRecently(a.skill, a.x) || (this.player.skills[a.skill] | 0) <= 0) continue;
         let lead = null;
@@ -183,6 +208,7 @@
       this.plan = NS.Pathfinder.plan(sim, this.pi, start, { maxActions: this.prof.maxActions, margin: this.prof.lag });
       this.planMs += Date.now() - t0;
       this.nextReplan = sim.tick + this.prof.replan;
+      this.lastPlanTick = sim.tick;
     }
 
     /* ------------------------------- Armes ---------------------------------- */
@@ -223,20 +249,8 @@
       return out;
     }
 
-    /** Cherche l'angle et la puissance dont l'impact tombe le plus près de (tx, ty). */
-    solveAim(tx, ty) {
-      const sim = this.sim, p = this.player, w = NS.Weapons.byId.cannon;
-      let best = null;
-      for (let a = 20; a <= 78; a += 2) {
-        for (let pw = 15; pw <= 100; pw += 3) {
-          const r = w.trajectory(sim, p, a, pw);
-          if (!r.hit) continue;
-          const d = Math.abs(r.x - tx) + Math.abs(r.y - ty) * 0.5;
-          if (!best || d < best.d) best = { angle: a, power: pw, d, x: r.x, y: r.y, t: r.t };
-        }
-      }
-      return best;
-    }
+    /** Visée du canon : voir Weapons.cannon.solve (même calcul que l'interface du joueur). */
+    solveAim(tx, ty) { return NS.Weapons.byId.cannon.solve(this.sim, this.player, tx, ty); }
 
     weapons() {
       const sim = this.sim, p = this.player, pr = this.prof;
@@ -247,17 +261,22 @@
       // Défense d'abord (difficile et moyen) : un dôme sur mon groupe menacé.
       if (this.ready('shield') && this.defend()) return;
 
+      // Contre-mesure (difficile) : une mine adverse visible devant mon Bidule de tête est détruite à distance.
+      if (pr.anticipate && this.clearMines()) return;
+
       // Reconnaissance : sans cible visible, on lève le brouillard.
       if (!enemies.length && this.ready('recon') && sim.tick > 360 && sim.tick >= p.revealUntil) {
         if (this.cmd({ type: 'weapon', weapon: 'recon' })) return;
       }
       if (!top) return;
 
-      // Satellite : groupe d'au moins 3 (ou ouvrage en cours), visée anticipée sur la durée de charge.
-      if (this.ready('satellite', 5) && (top.n >= 3 || top.focus)) {
-        const lead = pr.anticipate && top.walking ? top.dir * 40 : 0;
-        const x = Math.max(6, Math.min(sim.terrain.w - 6, top.x + lead));
-        if (!this.friendlyNear(x, top.y, 14) && !this.ownBeamNear(x)) {
+      // Satellite : un trou sans fond est permanent et gêne TOUT le monde sur le chemin commun, y compris mes
+      // propres Bidules qui sortent encore de la trappe. Un seul endroit est sans risque : derrière ma trappe,
+      // juste avant la sortie adverse. Le rayon y claque la porte au nez de leurs derniers pas (une fois).
+      if (this.ready('satellite', 5) && sim.tick > 600 && !this.slammed) {
+        const x = this.enemyExit.x + this.dir * 12;
+        if (Math.abs(x - this.enemyExit.x) < 40 && (x - p.hatch.x) * this.dir <= -6 && !this.friendlyNear(x, this.enemyExit.y, 14)) {
+          this.slammed = true;
           if (this.cmd({ type: 'weapon', weapon: 'satellite', x })) return;
         }
       }
@@ -288,7 +307,24 @@
       }
     }
 
-    ownBeamNear(x) { return this.sim.entities.some((e) => e.kind === 'beam' && e.owner === this.pi && Math.abs(e.x - x) < 30); }
+    /** Détruit une mine adverse visible qui barre ma route (canon, sinon drone). Vrai si une arme est partie. */
+    clearMines() {
+      const sim = this.sim, p = this.player;
+      let lead = null;
+      for (const b of this.own()) if (b.state !== 'rider' && (!lead || this.progress(b) > this.progress(lead))) lead = b;
+      if (!lead) return false;
+      for (const m of sim.entities) {
+        if (m.kind !== 'mine' || m.owner === this.pi || !sim.canSee(this.pi, m.x, m.y)) continue;
+        const ahead = (m.x - lead.x) * this.dir;
+        if (ahead < -10 || ahead > 110 || this.friendlyNear(m.x, m.y, 34)) continue;
+        if (this.ready('cannon')) {
+          const aim = this.solveAim(m.x, m.y);
+          if (aim && aim.d <= 24 && !this.friendlyNear(aim.x, aim.y, 36)) return !!this.cmd({ type: 'weapon', weapon: 'cannon', angle: aim.angle, power: aim.power });
+        }
+        if (this.ready('kdrone')) return !!this.cmd({ type: 'weapon', weapon: 'kdrone', x: m.x, y: m.y });
+      }
+      return false;
+    }
 
     /** Menaces visibles : obus, rayon verrouillé, drone adverse. Un bouclier sur le groupe concerné. */
     defend() {
@@ -302,10 +338,11 @@
         if (e.kind === 'shell') {                                  // impact prévu en prolongeant la trajectoire
           const r = this.predictShell(e);
           if (r) { tx = r.x; ty = r.y; soon = r.t > 6; }
-        } else if (e.kind === 'beam' && e.t < 40) { tx = e.x; ty = mine[0].y; soon = true; }
+        } else if (e.kind === 'mine' && this.prof.anticipate) { tx = e.x; ty = e.y; soon = true; }   // mine visible près de mon groupe
+        else if (e.kind === 'beam' && e.t < 40) { tx = e.x; ty = mine[0].y; soon = true; }
         else if (e.kind === 'drone') { tx = e.tx; ty = e.ty; soon = Math.abs(e.x - e.tx) + Math.abs(e.y - e.ty) < 120; }
         if (tx === null || !soon) continue;
-        const g = around(tx, ty, e.kind === 'beam' ? 20 : 45);
+        const g = around(tx, ty, e.kind === 'beam' ? 20 : e.kind === 'mine' ? 30 : 45);
         if (g.length >= 2 && !sim.shielded(g[0])) {
           const cx = Math.round(g.reduce((s, b) => s + b.x, 0) / g.length), cy = Math.round(g.reduce((s, b) => s + b.y - 5, 0) / g.length);
           if (this.cmd({ type: 'weapon', weapon: 'shield', x: cx, y: cy })) return true;

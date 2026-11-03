@@ -7,7 +7,7 @@
  * Tactile : un appui = appliquer ; deux doigts = pincer pour zoomer et
  *           glisser pour défiler (un doigt seul ne déplace jamais la carte, ce
  *           qui évite les mauvaises manipulations).
- * Clavier : voir la table KEYS ci-dessous (basée sur event.code pour les
+ * Clavier : chiffres 1 à 8 (compétences) ou 1 à 0 (arsenal), Tab, Entrée, B (détoner), etc. (event.code pour les
  *           chiffres, afin de fonctionner aussi sur AZERTY sans Maj).
  */
 (function (G) {
@@ -69,7 +69,7 @@
       const p = this.local(e);
       const ptr = this.pointers.get(e.pointerId);
       if (!ptr) {
-        if (e.pointerType === 'mouse') this.game.hover(p.x, p.y);
+        if (e.pointerType === 'mouse') { this.game.hover(p.x, p.y); this.game.pointerAt(p.x, p.y); }
         return;
       }
       const dx = p.x - ptr.x, dy = p.y - ptr.y;
@@ -84,7 +84,10 @@
         this.gesture = m;
       } else if (ptr.type === 'mouse') {                    // la souris peut faire glisser la carte
         this.game.hover(p.x, p.y);
+        this.game.pointerAt(p.x, p.y);
         if (ptr.moved || ptr.button === 1 || ptr.button === 2) cam.panBy(dx, dy);
+      } else if (this.pointers.size === 1) {
+        this.game.pointerAt(p.x, p.y);                      // doigt : pilotage du drone, aperçus de visée
       }
     }
 
@@ -131,12 +134,15 @@
       if (!down) return;
       g.audio.unlock();
       // Chiffres : event.code ne dépend pas de la disposition (AZERTY, QWERTY).
-      const m = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
-      if (m) { g.selectSkillIndex(Number(m[1]) - 1); e.preventDefault(); return; }
+      const m = /^(?:Digit|Numpad)([0-9])$/.exec(e.code);
+      if (m) { g.selectIndex((Number(m[1]) + 9) % 10); e.preventDefault(); return; }
+      if (e.key === 'Tab') { e.preventDefault(); g.toggleTab(); return; }
+      if (e.key === 'Enter') { g.confirm(); return; }
       switch (e.key) {
         case ' ': case 'p': case 'P': g.togglePause(); e.preventDefault(); break;
         case 'f': case 'F': g.cycleSpeed(); break;
         case 'u': case 'U': g.undo(); break;
+        case 'b': case 'B': g.detonate(); break;
         case 'm': case 'M': g.toggleMute(); break;
         case 'r': case 'R': g.restart(); break;
         case 'h': case 'H': case '?': g.showHelp(); break;

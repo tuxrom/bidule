@@ -107,9 +107,11 @@
       v.byDifficulty[difficulty] = d;
       this.store();
     },
+    /** Mode essai : ouvrir index.html?debloquer pour jouer n'importe quel niveau sans progression. */
+    cheat: typeof location !== 'undefined' && /[?&]debloquer/.test(location.search),
     /** Un niveau est jouable si le précédent est terminé (ou s'il est le premier de la campagne). */
     unlocked(index) {
-      if (index === 0) return true;
+      if (index === 0 || this.cheat) return true;
       return this.levelStars(all()[index - 1].id) >= 1;
     },
     totalStars() { return Object.values(this.data.levels).reduce((s, l) => s + l.stars, 0); },
