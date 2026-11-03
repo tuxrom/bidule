@@ -103,7 +103,12 @@ const ok = (m) => console.log('OK ' + (++n) + '. ' + m);
   run(s, 300);
   assert.strictEqual(s.entities.some((e) => e.kind === 'drone'), false, 'le drone a explosé');
   assert.strictEqual(enemy.state, 'dead'); assert.strictEqual(s.players[0].stats.kills, 1);
-  assert.strictEqual(s.terrain.get(300, 255), M.AIR, 'cratère sous la cible');
+  const g = mini([floor]);
+  assert.strictEqual(g.terrain.get(300, 252), M.SAND);
+  fire(g, 'kdrone', { x: 300, y: 262 });
+  run(g, 300);
+  assert.strictEqual(g.terrain.get(300, 252), M.AIR, 'cratère dans le sol');
+  assert.ok(g.terrain.isSolid(300, 275), 'le cratère reste une calotte peu profonde');
   ok('drone kamikaze piloté');
 }
 // Bouclier : protège d'une explosion pendant 15 s, plus après.

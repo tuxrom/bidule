@@ -257,7 +257,9 @@
         decor.push({ type: DECOR[o.theme], x, y: f.gy }, { type: DECOR[o.theme], x: W - 1 - x, y: f.gy });
       }
     }
-    const skills = { blocker: 3, builder: 6, digger: 2, miner: 2, basher: 5, floater: 3, climber: 3, bomber: 3 };
+    // Le parcours d'une armée traverse les deux moitiés : les besoins du plan sont doublés, plus une marge.
+    const need = (k) => L.plan.filter((r) => r.skill === k).length * 2;
+    const skills = { blocker: 3, builder: need('builder') + 3, digger: 2, miner: 2, basher: need('basher') + 3, floater: 3, climber: 3, bomber: 3 };
     const weapons = {};
     for (const w of NS.Weapons.list) weapons[w.id] = w.stock;
     const def = {

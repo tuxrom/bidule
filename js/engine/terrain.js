@@ -12,16 +12,30 @@
   const NS = (G.Bidules = G.Bidules || {});
   const M = NS.M, SOLID = NS.SOLID, DIGGABLE = NS.DIGGABLE;
 
+  /**
+   * Solidité selon le camp qui regarde. Les briques d'un camp ne sont solides
+   * que pour ce camp : les escaliers de l'un ne bloquent jamais l'autre (sinon
+   * deux armées qui bâtissent en sens inverse se verrouilleraient). Index 2 :
+   * vue neutre (obus, drones, explosions) pour qui tout est solide.
+   */
+  const VIEW = [SOLID.slice(), SOLID.slice(), SOLID];
+  VIEW[0][M.BRICK_B] = 0;
+  VIEW[1][M.BRICK] = 0;
+
   class Terrain {
     constructor(w, h) {
       this.w = w;
       this.h = h;
       this.data = new Uint8Array(w * h);
       this.dirty = null;   // {x0,y0,x1,y1} à repeindre, ou null
+      this.solid = VIEW[2];  // table de solidité active (voir setViewer)
       this.version = 0;    // incrémenté à chaque modification
     }
 
     /* ------------------------------ Lecture ------------------------------ */
+
+    /** Choisit le point de vue des tests de collision : 0, 1 (camp) ou 2 (neutre). */
+    setViewer(v) { this.solid = VIEW[v] || VIEW[2]; }
 
     /** Matériau en (x,y). Hors limites : air. */
     get(x, y) {
@@ -30,13 +44,13 @@
     }
     isSolid(x, y) {
       if (x < 0 || y < 0 || x >= this.w || y >= this.h) return false;
-      return SOLID[this.data[y * this.w + x]] === 1;
+      return this.solid[this.data[y * this.w + x]] === 1;
     }
     /** Vrai si la colonne x est libre sur `hgt` lignes, pied en yBottom. */
     freeColumn(x, yBottom, hgt) {
       if (x < 0 || x >= this.w) return true;
       for (let y = yBottom - hgt + 1; y <= yBottom; y++) {
-        if (y >= 0 && y < this.h && SOLID[this.data[y * this.w + x]] === 1) return false;
+        if (y >= 0 && y < this.h && this.solid[this.data[y * this.w + x]] === 1) return false;
       }
       return true;
     }
@@ -153,13 +167,15 @@
       return n;
     }
 
-    /** Pose un matériau sur un rectangle ; `onlyAir` protège le décor existant. */
+    /** Pose un matériau sur un rectangle ; `onlyAir` protège le décor existant (voir ci-dessous). */
     fillRect(x0, y0, x1, y1, mat, onlyAir) {
       let n = 0;
       for (let y = Math.max(0, y0); y <= Math.min(this.h - 1, y1); y++) {
         for (let x = Math.max(0, x0); x <= Math.min(this.w - 1, x1); x++) {
           const i = y * this.w + x;
-          if (onlyAir && this.data[i] !== M.AIR) continue;
+          // `onlyAir` protège le décor, sauf les briques de l'AUTRE camp (traversables pour moi : j'y bâtis).
+          const cur = this.data[i];
+          if (onlyAir && cur !== M.AIR && !((cur === M.BRICK || cur === M.BRICK_B) && cur !== mat)) continue;
           this.data[i] = mat; n++;
         }
       }

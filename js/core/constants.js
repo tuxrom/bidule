@@ -18,14 +18,15 @@
     AIR: 0,
     SAND: 1,   // sable : destructible
     ROCK: 2,   // roche : indestructible
-    BRICK: 3,  // brique posée par un bâtisseur : destructible
+    BRICK: 3,  // brique posée par le camp 0 : destructible, solide pour lui seul
     WATER: 4,  // eau : mortelle
-    LAVA: 5    // lave : mortelle
+    LAVA: 5,   // lave : mortelle
+    BRICK_B: 6 // brique du camp 1 (solide pour lui seul, traversable par le camp 0)
   });
 
   /** Tables de propriétés indexées par matériau (lecture O(1) dans les boucles chaudes). */
-  NS.SOLID = Uint8Array.from([0, 1, 1, 1, 0, 0]);
-  NS.DIGGABLE = Uint8Array.from([0, 1, 0, 1, 0, 0]);
+  NS.SOLID = Uint8Array.from([0, 1, 1, 1, 0, 0, 1]);
+  NS.DIGGABLE = Uint8Array.from([0, 1, 0, 1, 0, 0, 1]);
 
   NS.C = Object.freeze({
     TICK_RATE: 30,        // pas de simulation par seconde

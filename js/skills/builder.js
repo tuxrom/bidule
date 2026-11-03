@@ -30,7 +30,7 @@
       } else if (b.phase === 0) {                       // pose d'une brique
         if (b.t >= LAY_TICKS) {
           const xa = b.x + b.dir, xb = b.x + b.dir * 6;
-          t.fillRect(Math.min(xa, xb), b.y - 1, Math.max(xa, xb), b.y, M.BRICK, true);
+          t.fillRect(Math.min(xa, xb), b.y - 1, Math.max(xa, xb), b.y, b.owner === 1 ? M.BRICK_B : M.BRICK, true);
           b.bricks--;
           sim.emit('brick', b.x + b.dir * 3, b.y);
           if (b.bricks > 0 && b.bricks <= 3) sim.emit('warn', b.x, b.y);

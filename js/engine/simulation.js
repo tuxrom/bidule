@@ -142,8 +142,8 @@
           let n = 0;
           for (const e of this.entities) {
             if (e.owner !== p.id) continue;
-            if (e.kind === 'mine') { this.blast(e.x, e.y - 2, 26, { owner: p.id, cause: 'mine' }); e.dead = true; n++; }
-            else if (e.kind === 'drone') { e.boom = true; n++; }
+            if (e.kind === 'mine' && (!cmd.what || cmd.what === 'mine')) { this.blast(e.x, e.y - 2, 26, { owner: p.id, cause: 'mine', lift: 14 }); e.dead = true; n++; }
+            else if (e.kind === 'drone' && (!cmd.what || cmd.what === 'drone')) { e.boom = true; n++; }
           }
           return n > 0;
         }
@@ -227,12 +227,14 @@
     }
 
     /**
-     * Explosion : creuse un cratère, tue les Bidules non protégés dans le
+     * Explosion : creuse un cratère (calotte, voir `lift`), tue les Bidules non protégés dans le
      * rayon (tous camps confondus) et désamorce les pièges touchés.
      */
     blast(x, y, r, opts) {
       opts = opts || {};
-      if (opts.carve !== false) this.terrain.carveCircle(x, y, r, this.rng, !!opts.rock);
+      // `lift` relève le centre du cratère : une calotte peu profonde, aux flancs praticables à pied
+      // (un cratère entier de rayon r serait un puits de r pixels, infranchissable).
+      if (opts.carve !== false) this.terrain.carveCircle(x, y - (opts.lift || 0), r, this.rng, !!opts.rock);
       for (const b of this.bidules) {
         if (b.state === 'dead' || b.state === 'saved' || b.state === 'rider') continue;
         const dx = b.x - x, dy = b.y - 4 - y, rr = r + 2;
@@ -280,11 +282,16 @@
       // Entités avant Bidules (une copie de longueur : celles créées pendant le pas jouent au suivant).
       for (let i = 0, n = this.entities.length; i < n; i++) {
         const e = this.entities[i], w = NS.Weapons.byKind[e.kind];
+        this.terrain.setViewer(e.kind === 'tank' ? e.owner : 2);
         if (w && w.update && !e.dead) w.update(e, this);
       }
       this.entities = this.entities.filter((e) => !e.dead);
 
-      for (let i = 0, n = this.bidules.length; i < n; i++) NS.Physics.update(this.bidules[i], this);
+      for (let i = 0, n = this.bidules.length; i < n; i++) {
+        this.terrain.setViewer(this.bidules[i].owner);       // chacun voit les briques de son camp seulement
+        NS.Physics.update(this.bidules[i], this);
+      }
+      this.terrain.setViewer(2);
       this.updateTraps();
       this.bidules = this.bidules.filter((b) => b.state !== 'dead' && b.state !== 'saved');
 

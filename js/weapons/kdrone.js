@@ -26,7 +26,7 @@
           if (b.owner !== e.owner && b.state !== 'rider' && Math.abs(b.x - ix) <= 5 && Math.abs(b.y - 5 - iy) <= 8) { hit = true; break; }
         }
       }
-      if (hit) { sim.blast(ix, iy, RADIUS, { owner: e.owner, cause: 'drone' }); e.dead = true; }
+      if (hit) { sim.blast(ix, iy, RADIUS, { owner: e.owner, cause: 'drone', lift: 10 }); e.dead = true; }
     }
   });
 })(typeof window !== 'undefined' ? window : globalThis);

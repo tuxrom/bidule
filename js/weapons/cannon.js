@@ -68,7 +68,7 @@
             if (b.owner !== e.owner && b.state !== 'rider' && Math.abs(b.x - ix) <= 4 && Math.abs(b.y - 5 - iy) <= 7) { hit = true; break; }
           }
         }
-        if (hit) { sim.blast(ix, iy, RADIUS, { owner: e.owner, cause: 'shell' }); e.dead = true; return; }
+        if (hit) { sim.blast(ix, iy, RADIUS, { owner: e.owner, cause: 'shell', lift: 16 }); e.dead = true; return; }
         if (e.x < -40 || e.x > t.w + 40 || e.y > t.h + 40) { e.dead = true; return; }
       }
     }
