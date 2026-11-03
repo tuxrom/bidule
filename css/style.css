@@ -1,0 +1,152 @@
+/* style.css : interface du jeu. Mobile d'abord, portrait et paysage. */
+:root {
+  --bg: #2a1d1a;
+  --panel: #3a2a25;
+  --panel-2: #4a362f;
+  --line: #6b4e42;
+  --text: #fbeed7;
+  --muted: #c9ab8c;
+  --accent: #ffd23f;
+  --good: #7be07b;
+  --bad: #ff7a6a;
+  --teal: #3fb6c9;
+  --btn: 52px;                 /* taille minimale d'un bouton tactile */
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  overscroll-behavior: none; user-select: none; -webkit-user-select: none; touch-action: none;
+}
+#app { display: flex; flex-direction: column; height: 100%; height: 100dvh; }
+
+/* ---------- Barre du haut ---------- */
+#topbar {
+  display: flex; align-items: center; gap: 6px; padding: 4px calc(8px + var(--safe-r)) 4px calc(8px + var(--safe-l));
+  background: var(--panel); border-bottom: 2px solid var(--line); flex: none;
+}
+.stat { display: flex; flex-direction: column; min-width: 0; padding: 0 6px; line-height: 1.1; }
+.stat span { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.stat b { font-size: 15px; white-space: nowrap; }
+.stat-name { flex: 1; overflow: hidden; }
+.stat-name b { overflow: hidden; text-overflow: ellipsis; }
+#st-saved.ok { color: var(--good); }
+#st-time.low { color: var(--bad); }
+
+/* ---------- Zone de jeu ---------- */
+#stage { position: relative; flex: 1; min-height: 0; background: #000; }
+#game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; image-rendering: pixelated; cursor: default; }
+#game.can-assign { cursor: crosshair; }
+#toast {
+  position: absolute; left: 50%; top: 10px; transform: translateX(-50%); max-width: 90%;
+  background: rgba(30,20,18,.88); border: 2px solid var(--accent); padding: 8px 12px; border-radius: 6px;
+  font-size: 13px; text-align: center; opacity: 0; pointer-events: none; transition: opacity .25s;
+}
+#toast.show { opacity: 1; }
+#pause-badge {
+  position: absolute; right: 10px; top: 10px; background: rgba(30,20,18,.85); border: 2px solid var(--accent);
+  color: var(--accent); padding: 4px 10px; font-weight: bold; letter-spacing: .1em; display: none; pointer-events: none;
+}
+#pause-badge.show { display: block; }
+
+/* ---------- Barre du bas ---------- */
+#bottombar {
+  flex: none; background: var(--panel); border-top: 2px solid var(--line);
+  padding: 6px calc(6px + var(--safe-r)) calc(6px + var(--safe-b)) calc(6px + var(--safe-l));
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+#skillbar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; flex: 1 1 100%; }
+#toolbar { display: flex; gap: 4px; flex: 1 1 100%; align-items: stretch; }
+#toolbar .btn { flex: 1; }
+
+.btn {
+  font: inherit; color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 8px;
+  min-height: var(--btn); cursor: pointer; padding: 0 6px; display: flex; align-items: center; justify-content: center;
+  touch-action: manipulation;
+}
+.btn:active { transform: translateY(1px); background: #5a443b; }
+.btn.on { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.btn.icon { min-height: 40px; min-width: 40px; flex: none; }
+.btn.tool { font-weight: bold; font-size: 16px; }
+
+.skill { position: relative; flex-direction: column; gap: 2px; padding: 3px 2px; min-height: 62px; }
+.skill canvas { width: 32px; height: 32px; image-rendering: pixelated; }
+.skill .lbl { font-size: 9px; line-height: 1; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.skill .cnt { position: absolute; top: 1px; right: 3px; font-size: 13px; font-weight: bold; color: var(--accent); }
+.skill .key { position: absolute; top: 1px; left: 4px; font-size: 10px; color: var(--muted); display: none; }
+.skill.on { background: #5c4a2a; box-shadow: 0 0 0 2px var(--accent) inset; }
+.skill.on .lbl { color: var(--accent); }
+.skill:disabled .cnt { color: var(--muted); }
+
+.rate { display: flex; align-items: stretch; gap: 4px; flex: 1.6 !important; }
+.rate .btn { flex: 1; font-size: 22px; }
+.rate-val { flex: 1.2; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.rate-val span { font-size: 9px; text-transform: uppercase; color: var(--muted); }
+.rate-val b { font-size: 16px; }
+
+/* Souris : un seul rang, les raccourcis sont affichés. */
+@media (hover: hover) and (pointer: fine) {
+  .skill .key { display: block; }
+}
+@media (min-width: 880px) {
+  #skillbar { flex: 1 1 520px; }
+  #toolbar { flex: 1 1 380px; }
+  .skill { min-height: 66px; }
+}
+/* Paysage sur téléphone : tout sur une ligne, bandeau compact. */
+@media (max-height: 520px) and (orientation: landscape) {
+  :root { --btn: 44px; }
+  #topbar { padding-top: 2px; padding-bottom: 2px; }
+  .stat span { font-size: 9px; } .stat b { font-size: 13px; }
+  #bottombar { flex-wrap: nowrap; padding-top: 4px; padding-bottom: calc(4px + var(--safe-b)); }
+  #skillbar { flex: 1 1 54%; }
+  #toolbar { flex: 1 1 46%; }
+  .skill { min-height: 52px; } .skill canvas { width: 26px; height: 26px; } .skill .lbl { display: none; }
+  .btn.icon { min-height: 32px; }
+}
+@media (max-width: 420px) {
+  .stat { padding: 0 3px; } .stat b { font-size: 13px; } .stat-name { display: none; }
+  .btn.tool { font-size: 14px; }
+  .skill .lbl { font-size: 8px; letter-spacing: -.02em; }
+}
+
+/* ---------- Écrans (titre, aide, résultat) ---------- */
+#overlay {
+  position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 30%, rgba(80,50,35,.92), rgba(20,12,10,.96)); padding: 14px; overflow: auto;
+  touch-action: pan-y;
+}
+#overlay[hidden] { display: none; }
+.card {
+  width: min(560px, 100%); background: var(--panel); border: 3px solid var(--line); border-radius: 12px; padding: 18px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.5); max-height: 100%; overflow: auto;
+}
+.card h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: .04em; color: var(--accent); text-transform: uppercase; }
+.card h2 { margin: 0 0 8px; font-size: 20px; color: var(--accent); }
+.card p { margin: 6px 0 12px; line-height: 1.45; color: var(--text); font-size: 14px; }
+.card .sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+.card .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.card .row .btn { flex: 1 1 140px; font-size: 15px; font-weight: bold; }
+.btn.primary { background: #7a5a16; border-color: var(--accent); color: #fff6c8; }
+.levels { display: grid; gap: 8px; margin: 10px 0; }
+.level-card {
+  display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; min-height: 64px; padding: 8px 12px;
+}
+.level-card .num { font-size: 26px; color: var(--accent); width: 34px; text-align: center; }
+.level-card .meta { flex: 1; min-width: 0; }
+.level-card .meta b { display: block; font-size: 15px; }
+.level-card .meta small { color: var(--muted); font-size: 12px; }
+.level-card .best { color: var(--good); font-size: 13px; font-weight: bold; }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; margin: 8px 0; }
+.keys kbd { background: #1d1311; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; color: var(--accent); justify-self: start; }
+.result-big { font-size: 40px; font-weight: bold; margin: 4px 0; }
+.result-big.win { color: var(--good); } .result-big.lose { color: var(--bad); }
+.bar { height: 14px; background: #1d1311; border: 2px solid var(--line); border-radius: 7px; position: relative; overflow: hidden; margin: 8px 0; }
+.bar i { position: absolute; inset: 0 auto 0 0; background: var(--teal); }
+.bar u { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); }
+.logo { width: 64px; height: 80px; image-rendering: pixelated; float: right; margin-left: 10px; }

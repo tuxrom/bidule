@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#2a1d1a">
+  <title>Opération Mirage - Les Bidules</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Barre d'état : niveau, compteurs, chronomètre, son, menu -->
+    <header id="topbar">
+      <div class="stat stat-name"><span>Niveau</span><b id="st-name">-</b></div>
+      <div class="stat"><span>En jeu</span><b id="st-alive">0</b></div>
+      <div class="stat"><span>Sortis</span><b id="st-out">0/0</b></div>
+      <div class="stat"><span>Sauvés</span><b id="st-saved">0%</b></div>
+      <div class="stat"><span>Temps</span><b id="st-time">0:00</b></div>
+      <button id="btn-mute" class="btn icon" aria-label="Couper le son" title="Son (M)"></button>
+      <button id="btn-menu" class="btn icon" aria-label="Menu" title="Menu (Échap)"></button>
+    </header>
+
+    <!-- Zone de jeu -->
+    <main id="stage">
+      <canvas id="game"></canvas>
+      <div id="toast" role="status"></div>
+      <div id="pause-badge">PAUSE</div>
+    </main>
+
+    <!-- Barre d'outils : compétences puis commandes -->
+    <footer id="bottombar">
+      <div id="skillbar"></div>
+      <div id="toolbar">
+        <div class="rate">
+          <button id="btn-rate-dec" class="btn tool" aria-label="Ralentir la trappe">-</button>
+          <div class="rate-val"><span>Cadence</span><b id="st-rate">50</b></div>
+          <button id="btn-rate-inc" class="btn tool" aria-label="Accélérer la trappe">+</button>
+        </div>
+        <button id="btn-pause" class="btn tool" title="Pause (P ou Espace)"></button>
+        <button id="btn-x2" class="btn tool" title="Vitesse x2 (F)">x2</button>
+        <button id="btn-x4" class="btn tool" title="Vitesse x4">x4</button>
+        <button id="btn-undo" class="btn tool" title="Annuler (U ou Ctrl+Z)"></button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Écrans : titre, niveaux, aide, pause, résultat -->
+  <div id="overlay" hidden></div>
+
+  <!-- Modules : scripts classiques (pas de modules ES, pour fonctionner en file://). Ordre = dépendances. -->
+  <script src="js/core/constants.js"></script>
+  <script src="js/core/rng.js"></script>
+  <script src="js/engine/terrain.js"></script>
+  <script src="js/skills/registry.js"></script>
+  <script src="js/bidules/bidule.js"></script>
+  <script src="js/skills/blocker.js"></script>
+  <script src="js/skills/builder.js"></script>
+  <script src="js/skills/digger.js"></script>
+  <script src="js/skills/miner.js"></script>
+  <script src="js/skills/basher.js"></script>
+  <script src="js/skills/floater.js"></script>
+  <script src="js/skills/bomber.js"></script>
+  <script src="js/levels/loader.js"></script>
+  <script src="js/levels/level1.js"></script>
+  <script src="js/levels/level2.js"></script>
+  <script src="js/levels/level3.js"></script>
+  <script src="js/engine/simulation.js"></script>
+  <script src="js/render/sprites.js"></script>
+  <script src="js/render/camera.js"></script>
+  <script src="js/render/particles.js"></script>
+  <script src="js/render/renderer.js"></script>
+  <script src="js/audio/audio.js"></script>
+  <script src="js/ui/hud.js"></script>
+  <script src="js/ui/input.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

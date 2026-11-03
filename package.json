@@ -1,0 +1,11 @@
+{
+  "name": "operation-mirage-bidules",
+  "version": "0.1.0",
+  "description": "Jeu de réflexion 2D en HTML5 Canvas : guidez des Bidules (soldats-robots) jusqu'à la sortie.",
+  "private": true,
+  "scripts": {
+    "test": "node tests/determinism.test.js && node tests/skills.test.js && node tests/solutions.test.js",
+    "export-levels": "node tools/export-levels.js"
+  },
+  "license": "MIT"
+}

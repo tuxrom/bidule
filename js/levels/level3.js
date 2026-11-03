@@ -1,0 +1,36 @@
+/**
+ * level3.js - "Forteresse du mirage" : redescendre une marche, traverser un
+ * mur de sable (foreur), franchir un bassin d'eau (bâtisseur),
+ * puis un gouffre de lave coupé par un îlot (deux bâtisseurs à la suite).
+ */
+(function (G) {
+  'use strict';
+  G.Bidules.Loader.register({
+    "id": "dunes-3",
+    "name": "Forteresse du mirage",
+    "hint": "Un mur, un bassin, un gouffre avec un îlot. Garde des bâtisseurs pour la fin : un escalier ne suffit pas.",
+    "width": 1400, "height": 480, "seed": 3003,
+    "hatch": { "x": 80, "y": 135, "dir": 1 },
+    "exit": { "x": 1250, "y": 229 },
+    "count": 30, "goal": 50, "timeLimit": 360,
+    "rate": { "min": 20, "start": 30 },
+    "skills": { "blocker": 3, "builder": 5, "digger": 1, "miner": 1, "basher": 3, "floater": 3, "bomber": 3 },
+    "decor": [
+      { "type": "cactus", "x": 250, "y": 180 }, { "type": "cactus", "x": 470, "y": 230 },
+      { "type": "cactus", "x": 880, "y": 230 }, { "type": "cactus", "x": 1190, "y": 230 },
+      { "type": "cactus", "x": 1330, "y": 230 }
+    ],
+    "terrain": [
+      { "op": "heights", "m": "sand", "pts": [[0, 180], [399, 180], [400, 230], [1399, 230]] },
+      { "op": "rect", "m": "sand", "x": 560, "y": 80, "w": 30, "h": 150 },
+      { "op": "rect", "m": "air", "x": 700, "y": 230, "w": 36, "h": 60 },
+      { "op": "rect", "m": "water", "x": 700, "y": 242, "w": 36, "h": 48 },
+      { "op": "rect", "m": "air", "x": 1000, "y": 230, "w": 100, "h": 250 },
+      { "op": "rect", "m": "lava", "x": 1000, "y": 330, "w": 100, "h": 150 },
+      { "op": "rect", "m": "rock", "x": 1030, "y": 230, "w": 40, "h": 250 },
+      { "op": "rect", "m": "rock", "x": 0, "y": 462, "w": 1400, "h": 18 },
+      { "op": "rect", "m": "rock", "x": 0, "y": 0, "w": 8, "h": 480 },
+      { "op": "rect", "m": "rock", "x": 1392, "y": 0, "w": 8, "h": 480 }
+    ]
+  });
+})(typeof window !== 'undefined' ? window : globalThis);
