@@ -1,6 +1,6 @@
 /**
  * blocker.js - Bloqueur : le Bidule se plante sur place, les autres font
- * demi-tour à son contact (voir Simulation.obstacleBlocks). Définitif.
+ * demi-tour à son contact (voir Simulation.obstacleAt). Définitif.
  */
 (function (G) {
   'use strict';
@@ -9,7 +9,7 @@
     id: 'blocker',
     label: 'Bloqueur',
     state: 'block',
-    canAssign: (b) => b.state === 'walk',
+    canAssign: (b) => b.state === 'walk' || b.state === 'wait',
     assign(b, sim) { b.state = 'block'; b.t = 0; },
     update(b, sim) {
       b.t++;

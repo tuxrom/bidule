@@ -20,7 +20,7 @@
   NS.Behaviors = NS.Behaviors || {};
 
   /** États "de travail" dans lesquels un outil peut être remplacé par un autre. */
-  const WORK_STATES = { walk: 1, build: 1, dig: 1, mine: 1, bash: 1 };
+  const WORK_STATES = { walk: 1, wait: 1, build: 1, dig: 1, mine: 1, bash: 1 };
 
   const Skills = {
     list: [],

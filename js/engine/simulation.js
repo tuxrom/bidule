@@ -185,19 +185,30 @@
     /* --------------------------- Aides physiques ---------------------------- */
 
     /**
-     * Un obstacle (bloqueur, bâtisseur au travail) du MÊME camp renvoie-t-il
-     * `b` qui s'apprête à aller en `nx` ? Zone de ±6 pixels, à peu près à la
-     * même hauteur, et seulement si le Bidule s'en rapproche.
+     * Un obstacle du MÊME camp arrête-t-il `b` qui s'apprête à aller en `nx` ?
+     * Renvoie l'obstacle ou null.
+     *  - Bloqueur : zone de ±6 pixels, seulement si le Bidule s'en rapproche
+     *    (il fait alors demi-tour).
+     *  - Bâtisseur, foreur ou mineur au travail : ceux qui marchent dans le même
+     *    sens, à sa hauteur ou derrière lui (même en grappe superposée), s'arrêtent
+     *    et attendent (état 'wait') au lieu de s'engager sur un escalier inachevé
+     *    ou de buter contre le mur qu'il perce, puis de faire demi-tour vers un gouffre.
      */
-    obstacleBlocks(b, nx) {
+    obstacleAt(b, nx) {
       const obs = this.obstacles;
       for (let i = 0; i < obs.length; i++) {
         const o = obs[i];
         if (o === b || o.owner !== b.owner || Math.abs(o.y - b.y) > 8) continue;
+        if (o.state === 'build' || o.state === 'bash' || o.state === 'mine') {
+          if (b.dir !== o.dir) continue;
+          const rel = (nx - o.x) * o.dir;
+          if (rel <= 1 && rel >= -6) return o;
+          continue;
+        }
         const now = Math.abs(o.x - b.x), next = Math.abs(o.x - nx);
-        if (next <= 6 && next < now) return true;
+        if (next <= 6 && next < now) return o;
       }
-      return false;
+      return null;
     }
 
     inExit(b) {
@@ -221,7 +232,7 @@
      */
     blast(x, y, r, opts) {
       opts = opts || {};
-      this.terrain.carveCircle(x, y, r, this.rng, !!opts.rock);
+      if (opts.carve !== false) this.terrain.carveCircle(x, y, r, this.rng, !!opts.rock);
       for (const b of this.bidules) {
         if (b.state === 'dead' || b.state === 'saved' || b.state === 'rider') continue;
         const dx = b.x - x, dy = b.y - 4 - y, rr = r + 2;
@@ -264,7 +275,7 @@
       for (const p of this.players) { this.spawn(p); this.economy(p); }
 
       this.obstacles.length = 0;
-      for (const b of this.bidules) if (b.state === 'block' || b.state === 'build') this.obstacles.push(b);
+      for (const b of this.bidules) if (b.state === 'block' || b.state === 'build' || b.state === 'bash' || b.state === 'mine') this.obstacles.push(b);
 
       // Entités avant Bidules (une copie de longueur : celles créées pendant le pas jouent au suivant).
       for (let i = 0, n = this.entities.length; i < n; i++) {
@@ -309,8 +320,10 @@
         for (const b of this.bidules) {
           if (b.state === 'dead' || b.state === 'saved' || b.state === 'rider') continue;
           if (Math.abs(b.x - t.x) <= 4 && b.y >= t.y - 10 && b.y <= t.y + 2 && !this.shielded(b)) {
+            // Un piège ne tue que celui qui le déclenche et ne creuse rien : il ne coupe jamais la route.
             t.alive = false;
-            this.blast(t.x, t.y - 2, 14, { owner: -1, cause: 'trap' });
+            NS.Physics.die(b, this, 'trap', -1);
+            this.emit('explode', t.x, t.y - 2, 8);
             break;
           }
         }

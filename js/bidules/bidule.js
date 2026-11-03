@@ -19,7 +19,7 @@
       this.x = x;
       this.y = y;
       this.dir = dir;          // 1 = vers la droite, -1 = vers la gauche
-      this.state = 'fall';     // fall | walk | block | build | dig | mine | bash | climb | jet | zip | grapple | rider | dead | saved
+      this.state = 'fall';     // fall | walk | wait | block | build | dig | mine | bash | climb | jet | zip | grapple | rider | dead | saved
       this.t = 0;              // compteur propre à l'état (animation, cadence)
       this.fallDist = 0;       // pixels tombés depuis le dernier appui
       this.fallTicks = 0;
@@ -89,7 +89,12 @@
     tryWalk(b, sim) {
       const t = sim.terrain;
       const nx = b.x + b.dir;
-      if (sim.obstacleBlocks(b, nx)) { b.dir = -b.dir; return 'turned'; }
+      const obs = sim.obstacleAt(b, nx);
+      if (obs) {
+        if (obs.state !== 'block') { b.state = 'wait'; b.n = b.dir; b.t = 0; return 'wait'; }
+        b.dir = -b.dir;
+        return 'turned';
+      }
       let ny = -1;
       for (let k = 0; k <= C.MAX_CLIMB; k++) {
         if (t.freeColumn(nx, b.y - k, C.BODY_H)) { ny = b.y - k; break; }
@@ -140,6 +145,22 @@
     Physics.unstick(b, sim);
     if (!sim.terrain.isSolid(b.x, b.y + 1)) { Physics.startFall(b); return; }
     Physics.tryWalk(b, sim);
+  };
+
+  /**
+   * Attente derrière un bâtisseur, foreur ou mineur : le Bidule reste en place tant qu'un ouvrier
+   * du même camp travaille devant lui à moins de 12 pixels, puis reprend sa marche
+   * (il suit ainsi l'escalier à distance, sans jamais dépasser le bâtisseur).
+   */
+  NS.Behaviors.wait = function (b, sim) {
+    b.t++;
+    if (!sim.terrain.isSolid(b.x, b.y + 1)) { Physics.startFall(b); return; }
+    for (const o of sim.obstacles) {
+      if (o.owner !== b.owner || o.state === 'block' || o === b || Math.abs(o.y - b.y) > 30) continue;
+      const ahead = (o.x - b.x) * b.n;
+      if (ahead >= -1 && ahead <= 12) return;
+    }
+    b.state = 'walk'; b.dir = b.n; b.t = 0;
   };
 
   NS.Behaviors.fall = function (b, sim) {

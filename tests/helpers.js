@@ -11,8 +11,8 @@ const FILES = [
   'js/skills/basher.js', 'js/skills/floater.js', 'js/skills/bomber.js', 'js/skills/climber.js',
   'js/weapons/recon.js', 'js/weapons/kdrone.js', 'js/weapons/satellite.js', 'js/weapons/cannon.js', 'js/weapons/shield.js',
   'js/weapons/zipline.js', 'js/weapons/jetpack.js', 'js/weapons/grapple.js', 'js/weapons/mine.js', 'js/weapons/tank.js',
-  'js/levels/loader.js', 'js/levels/level1.js', 'js/levels/level2.js', 'js/levels/level3.js',
-  'js/engine/simulation.js'
+  'js/levels/loader.js', 'js/levels/level1.js', 'js/levels/level2.js', 'js/levels/level3.js', 'js/levels/generator.js',
+  'js/engine/simulation.js', 'js/levels/campaign.js'
 ];
 for (const f of FILES) require(path.join(ROOT, f));
 const NS = globalThis.Bidules;
