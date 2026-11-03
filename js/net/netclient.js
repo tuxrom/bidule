@@ -107,6 +107,7 @@
       switch (m.type) {
         case 'welcome':
           this.token = m.token; if (this.storage) this.write('bidules.token', m.token);
+          if ((this.room || this.sim) && !m.inRoom) { this.room = null; this.reset(); this.emit('lost', {}); }   // le serveur a redémarré : le salon n'existe plus
           this.emit('welcome', m);
           break;
         case 'pong': {
@@ -115,7 +116,7 @@
           this.emit('rtt', this.rtt);
           break;
         }
-        case 'room': this.room = m; this.emit('room', m); break;
+        case 'room': this.room = m; if (m.you !== undefined && m.you >= 0) this.slot = m.you; this.emit('room', m); break;
         case 'countdown': this.emit('countdown', m); break;
         case 'start': this.onStart(m); break;
         case 'step': this.onStep(m); break;
@@ -217,6 +218,28 @@
     /** Pour les tests : abîme l'état local pour provoquer une désynchronisation. */
     debugCorrupt() { if (this.sim) { this.sim.terrain.data[1000] = (this.sim.terrain.data[1000] + 1) % 4; } }
   }
+
+  /**
+   * Enrobage de WebSocket qui retarde chaque message de `lat` ms (+ gigue), ordre conservé. Activé par `?lag=120`
+   * dans l'adresse de la page, pour éprouver le lockstep sans outil externe.
+   */
+  NetSession.lagSocket = function (lat, jit) {
+    return class LagSocket {
+      constructor(url) {
+        this.ws = new G.WebSocket(url);
+        this.t = { in: 0, out: 0 };
+        const defer = (k, fn) => { const at = Math.max(this.t[k], Date.now() + lat + Math.random() * jit); this.t[k] = at; setTimeout(fn, Math.max(0, at - Date.now())); };
+        this.defer = defer;
+        this.ws.onopen = () => defer('in', () => this.onopen && this.onopen());
+        this.ws.onmessage = (e) => defer('in', () => this.onmessage && this.onmessage({ data: e.data }));
+        this.ws.onclose = () => defer('in', () => this.onclose && this.onclose());
+        this.ws.onerror = () => {};
+      }
+      get readyState() { return this.ws.readyState; }
+      send(s) { this.defer('out', () => { if (this.ws.readyState === 1) this.ws.send(s); }); }
+      close() { this.ws.close(); }
+    };
+  };
 
   NS.NetSession = NetSession;
 })(typeof window !== 'undefined' ? window : globalThis);

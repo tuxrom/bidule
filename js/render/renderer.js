@@ -299,6 +299,7 @@
       const ctx = this.ctx, cam = this.cam, t = sim.terrain, def = sim.def, th = this.theme;
       const s = cam.zoom * this.dpr;
       const time = view.time;
+      this.me = view.me | 0;                                   // camp du joueur local (le camp 1 en ligne, pour l'invité)
 
       // Repeindre les zones modifiées du terrain.
       const dr = t.takeDirty();
@@ -340,7 +341,7 @@
       for (const e of sim.entities) {
         const draw = ENTITY_DRAW[e.kind];
         if (!draw) continue;
-        const vis = e.owner === 0 || sim.canSee(0, e.x !== undefined ? e.x : e.x1, e.y !== undefined ? e.y : e.y1);
+        const vis = e.owner === this.me || sim.canSee(this.me, e.x !== undefined ? e.x : e.x1, e.y !== undefined ? e.y : e.y1);
         if (vis || e.kind === 'beam') draw(ctx, e, sim, time, vis);
       }
 
@@ -348,7 +349,7 @@
       const F = NS.Sprites.frames;
       for (const b of sim.bidules) {
         if (b.state === 'rider') continue;
-        if (b.owner !== 0 && !sim.canSee(0, b.x, b.y)) continue;      // adversaire dans le brouillard
+        if (b.owner !== this.me && !sim.canSee(this.me, b.x, b.y)) continue;      // adversaire dans le brouillard
         const f = F[b.owner][NS.Sprites.frameFor(b)];
         const img = b.dir >= 0 ? f.r : f.l;
         const px = Math.round(b.x) - 4, py = Math.round(b.y) - 9;
@@ -376,7 +377,7 @@
       fx.draw(ctx);
 
       // Reconnaissance : balayage lumineux pendant les 20 s.
-      const me = sim.players[0];
+      const me = sim.players[this.me];
       if (sim.tick < me.revealUntil) {
         const vwW = cam.vw / cam.zoom, sx = cam.x + ((time * 90) % vwW);
         ctx.fillStyle = 'rgba(120,240,255,0.35)'; ctx.fillRect(sx, cam.y, 2, cam.vh / cam.zoom);
@@ -393,6 +394,15 @@
         }
       }
       if (view.overlay) view.overlay(ctx, s);
+
+      // Brouilleur adverse : parasites sur l'écran.
+      if (me.jammedUntil > sim.tick) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = 'rgba(255,90,120,0.16)';
+        for (let i = 0; i < 9; i++) ctx.fillRect(0, ((time * 700 + i * 137) % this.canvas.height) | 0, this.canvas.width, 2 + (i & 3));
+        ctx.fillStyle = 'rgba(255,255,255,0.10)';
+        for (let i = 0; i < 40; i++) ctx.fillRect(((i * 7919 + (time * 5000 | 0)) % this.canvas.width) | 0, ((i * 104729) % this.canvas.height) | 0, 3, 1);
+      }
 
       if (sim.fog && sim.tick >= me.revealUntil) this.drawFog(sim, th);
     }
@@ -443,7 +453,7 @@
     /** Emplacement du canon César : base et tube incliné selon l'angle de visée. */
     drawCannon(ctx, p, view) {
       if (!p.cannon || !p.weapons.cannon) return;
-      const c = p.cannon, ang = p.id === 0 && view.aimAngle != null ? view.aimAngle : 45;
+      const c = p.cannon, ang = p.id === this.me && view.aimAngle != null ? view.aimAngle : 45;
       ctx.fillStyle = '#17303a'; ctx.fillRect(c.x - 6, c.y - 3, 12, 4);
       ctx.fillStyle = p.id ? '#a83a3a' : '#2e8fa3'; ctx.fillRect(c.x - 5, c.y - 5, 10, 3);
       const bx = c.x, by = c.y - 8, L = 11;
@@ -455,7 +465,7 @@
 
     /** Mines cachées : visibles seulement sous reconnaissance (ou une fois désamorcées, jamais). */
     drawTraps(ctx, sim, time) {
-      if (sim.tick >= sim.players[0].revealUntil) return;
+      if (sim.tick >= sim.players[this.me].revealUntil) return;
       for (const tr of sim.traps) {
         if (!tr.alive) continue;
         ctx.fillStyle = '#17303a'; ctx.fillRect(tr.x - 3, tr.y - 1, 7, 2); ctx.fillRect(tr.x - 2, tr.y - 2, 5, 1);
@@ -492,10 +502,10 @@
       g.fillRect(0, 0, f.width, f.height);
       g.globalCompositeOperation = 'destination-out';
       const hole = (x, y, mul) => { const r = R * (mul || 1); g.drawImage(this.disc, (x - cam.x) * k - r / 2, (y - cam.y) * k - r / 2, r, r); };
-      const me = sim.players[0];
+      const me = sim.players[this.me];
       hole(me.hatch.x, me.hatch.y, 0.9); hole(me.exit.x, me.exit.y - 8, 0.9);
-      for (const b of sim.bidules) if (b.owner === 0 && b.state !== 'rider') hole(b.x, b.y - 5, 1);
-      for (const e of sim.entities) if (e.owner === 0 && (e.kind === 'drone' || e.kind === 'tank')) hole(e.x, e.y, 0.8);
+      for (const b of sim.bidules) if (b.owner === this.me && b.state !== 'rider') hole(b.x, b.y - 5, 1);
+      for (const e of sim.entities) if (e.owner === this.me && (e.kind === 'drone' || e.kind === 'tank')) hole(e.x, e.y, 0.8);
       g.globalCompositeOperation = 'source-over';
       const ctx = this.ctx;
       ctx.setTransform(1, 0, 0, 1, 0, 0);

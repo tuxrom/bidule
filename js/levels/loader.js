@@ -42,6 +42,10 @@
     0xff6a1a: M.LAVA    // orange
   };
 
+  const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const unb64 = (s) => { const t = atob(String(s).replace(/-/g, '+').replace(/_/g, '/')); const u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i); return u; };
+  const hash32 = (str) => { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
+
   const Loader = {
     MASK_PALETTE,
 
@@ -65,9 +69,10 @@
     /** Lit un niveau depuis un texte JSON (fichier chargé par fetch, éditeur...). */
     fromJSON(text) { return JSON.parse(text); },
 
-    /** Crée le terrain d'un niveau en exécutant ses opérations de dessin. */
+    /** Crée le terrain d'un niveau : bitmap RLE (niveaux de l'éditeur) ou opérations de dessin. */
     buildTerrain(def) {
       const t = new NS.Terrain(def.width, def.height);
+      if (def.bitmap) { t.data.set(Loader.decodeRLE(def.bitmap, def.width * def.height)); t.markAllDirty(); return t; }
       for (const op of def.terrain || []) {
         const m = MATERIAL_BY_NAME[op.m];
         if (m === undefined) throw new Error('Matériau inconnu : ' + op.m);
@@ -81,6 +86,67 @@
       }
       t.markAllDirty();
       return t;
+    },
+
+    /* -------------------- Partage de niveaux par code (éditeur) -------------------- */
+
+    /** Terrain -> chaîne base64url : suite de (matériau, longueur de série en varint). */
+    encodeRLE(data) {
+      const out = [];
+      for (let i = 0; i < data.length;) {
+        let j = i; while (j < data.length && data[j] === data[i]) j++;
+        out.push(data[i]);
+        for (let n = j - i; ; n >>= 7) { if (n < 128) { out.push(n); break; } out.push((n & 127) | 128); }
+        i = j;
+      }
+      return b64(Uint8Array.from(out));
+    },
+
+    /** Chaîne -> terrain ; `len` est la taille exigée (refus de tout code qui ne la remplit pas exactement). */
+    decodeRLE(str, len) {
+      const bytes = unb64(str), data = new Uint8Array(len);
+      let pos = 0;
+      for (let i = 0; i < bytes.length;) {
+        const m = bytes[i++];
+        let n = 0, shift = 0, b;
+        do { if (i >= bytes.length) throw new Error('code tronqué'); b = bytes[i++]; n |= (b & 127) << shift; shift += 7; } while (b & 128);
+        if (m > 5 || n <= 0 || pos + n > len) throw new Error('code invalide');
+        data.fill(m, pos, pos + n); pos += n;
+      }
+      if (pos !== len) throw new Error('code incomplet');
+      return data;
+    },
+
+    /** Niveau de l'éditeur -> code partageable (en-tête JSON + terrain, séparés par un point). */
+    encodeLevel(def, terrain) {
+      const h = { v: 1, n: def.name, w: def.width, h: def.height, th: def.theme, hx: def.hatch.x, hy: def.hatch.y, hd: def.hatch.dir, ex: def.exit.x, ey: def.exit.y,
+        c: def.count, g: def.goal, t: def.timeLimit, s: def.skills };
+      return b64(new TextEncoder().encode(JSON.stringify(h))) + '.' + Loader.encodeRLE(terrain.data);
+    },
+
+    /**
+     * Code -> niveau jouable. Tout est borné : un code venu d'un inconnu ne peut ni dépasser les limites, ni
+     * placer la trappe hors carte, ni contenir autre chose que du terrain (aucune opération, aucun script).
+     */
+    decodeLevel(code) {
+      const [hp, bp] = String(code).trim().split('.');
+      if (!hp || !bp) throw new Error('code invalide');
+      const h = JSON.parse(new TextDecoder().decode(unb64(hp)));
+      const int = (v, lo, hi, d) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d);
+      const w = int(h.w, 200, 1200, 600), ht = int(h.h, 150, 600, 300);
+      const skills = {};
+      for (const k of ['blocker', 'builder', 'digger', 'miner', 'basher', 'floater', 'climber', 'bomber']) skills[k] = int(h.s && h.s[k], 0, 20, 0);
+      const def = {
+        id: 'custom-' + hash32(code), name: String(h.n || 'Niveau perso').replace(/[<>&"']/g, '').slice(0, 30), world: 'custom',
+        theme: ['desert', 'ruins', 'arctic', 'orbital'].includes(h.th) ? h.th : 'desert',
+        width: w, height: ht, seed: 4242, mode: 'solo',
+        hatch: { x: int(h.hx, 12, w - 12, 40), y: int(h.hy, 12, ht - 12, 40), dir: h.hd === -1 ? -1 : 1 },
+        exit: { x: int(h.ex, 12, w - 12, w - 40), y: int(h.ey, 12, ht - 2, ht - 40) },
+        count: int(h.c, 1, 60, 20), goal: int(h.g, 1, 100, 50), timeLimit: int(h.t, 30, 900, 240),
+        skills, rate: { min: 20, start: 40 }, bitmap: bp
+      };
+      def.bitmap = Loader.encodeRLE(Loader.decodeRLE(bp, w * ht));       // re-normalisé et validé
+      return def;
     },
 
     /** Applique une image de masque sur un terrain existant. */

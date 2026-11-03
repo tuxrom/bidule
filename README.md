@@ -7,15 +7,22 @@ pièges de quatre mondes, ou pour saboter l'armée adverse sur une carte symétr
 
 Nom, personnages, graphismes, sons et niveaux sont originaux. Aucun fichier image ou audio : tout est généré par le code.
 
-## Ouvrir le jeu en local
+## Lancer le jeu
 
-Aucun serveur, aucune installation, aucune dépendance.
+**Solo (campagne, ordinateur, éditeur)** : aucun serveur, aucune installation. Ouvrir `index.html` dans un navigateur récent (Chrome,
+Edge, Firefox, Safari). Les scripts sont des scripts classiques et non des modules ES, ce qui permet l'ouverture directe en `file://`
+(le service worker, lui, demande http ou https).
 
-1. Télécharger ou cloner le dépôt.
-2. Ouvrir `index.html` dans un navigateur récent (Chrome, Edge, Firefox, Safari).
+**Avec le jeu en ligne** (Node 18 ou plus) :
 
-Les scripts sont des scripts classiques et non des modules ES, ce qui permet l'ouverture directe en `file://`.
-Pour tester sur un téléphone : `python3 -m http.server 8000`, puis `http://<ip-du-poste>:8000`.
+```bash
+npm install
+npm start                      # http://localhost:3000 : le jeu ET le serveur multijoueur (WebSocket sur /ws)
+```
+
+Ouvrir `http://localhost:3000` dans deux navigateurs, « En ligne », créer un salon, rejoindre avec le code. Depuis un téléphone du
+même réseau : `http://<ip-du-poste>:3000`. Déploiement (VPS, Nginx, HTTPS, Render, Fly.io) : [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
+Ouvert depuis `file://`, le jeu en ligne demande l'adresse du serveur (`ws://...`).
 
 Le son démarre au premier appui (règle des navigateurs). Pour essayer n'importe quel niveau sans progression,
 ouvrir `index.html?debloquer`.
@@ -49,6 +56,31 @@ Choix du niveau : **Facile**, **Moyen**, **Difficile**. L'IA envoie des commande
 Règles propres au duel : brouillard de guerre (on ne voit l'adversaire que près de ses Bidules ou sous drone de
 reconnaissance), pièges cachés symétriques, briques des deux camps traversables par l'autre, annulation désactivée.
 
+### En ligne (duel et coopération)
+
+* **Duel 1 contre 1** : chaque joueur mène son armée sur une carte symétrique ; celui qui fait passer le plus de Bidules par sa
+  sortie gagne. Les armes détruisent le terrain et frappent l'armée adverse ; le **brouilleur radar** coupe les armes adverses pendant
+  10 secondes (30 points, recharge 60 s, 2 par partie).
+* **Coopération** : deux joueurs, **une seule armée**, un niveau de la campagne au choix. Les compétences et les armes sont réparties :
+  l'**Ingénieur** (bâtisseur, bloqueur, grimpeur, parachute ; reconnaissance, bouclier, tyrolienne, jetpack, grappin, char) et le
+  **Démolisseur** (creuseur, mineur, foreur, kamikaze ; drone, canon, satellite, mine). Si l'un part, l'autre reprend tout.
+* **Salons** à code de 4 lettres (ou lien `?salon=ABCD`), 2 joueurs, état « prêt » visible, compte à rebours, réglages par l'hôte.
+* **Chat rapide** par 8 emojis (bouton 😀 en jeu et dans le salon), **statistiques** de fin de partie pour chaque joueur.
+* Synchronisation par **lockstep déterministe arbitré par le serveur**, délai d'entrée adaptatif, détection de désynchronisation,
+  reconnexion en cours de partie, abandon : voir [docs/PROTOCOLE.md](docs/PROTOCOLE.md).
+
+### Éditeur de niveaux
+
+Menu principal, « Éditeur de niveaux » : pinceau (sable, roche, eau, lave, gomme), trappe, sortie, effectif, objectif, temps ;
+**Tester** lance le niveau tout de suite. **Copier le code** donne une chaîne qui contient tout le niveau (fonctionne hors ligne) ;
+**Publier** rend un code court `NIVxxxxxx` (serveur requis). **Charger** accepte les deux.
+
+### Application installable (PWA)
+
+Manifeste, icônes (dont « maskable »), service worker, installation depuis le menu (ou depuis le navigateur), plein écran. La
+**campagne, le mode contre l'ordinateur et l'éditeur fonctionnent hors ligne** une fois le jeu chargé une fois ; le jeu en ligne et la
+publication de niveaux demandent le serveur.
+
 ## Commandes
 
 | Action | PC | Mobile |
@@ -61,7 +93,8 @@ reconnaissance), pièges cachés symétriques, briques des deux camps traversabl
 | Détoner mines et drone | `B` | bouton « Détoner » |
 | Zoom | molette, `+` / `-` | pincement à deux doigts |
 | Défiler | glisser, flèches, `Maj` + molette | glissement à deux doigts |
-| Pause (les ordres restent possibles) | `P` ou `Espace` | bouton pause |
+| Messages rapides (en ligne) | bouton 😀 | bouton 😀 |
+| Pause (hors ligne, les ordres restent possibles) | `P` ou `Espace` | bouton pause |
 | Vitesse x2 / x4 | boutons, `F` | boutons x2, x4 |
 | Annuler la dernière action (campagne) | `U` ou `Ctrl+Z` | bouton annuler |
 | Cadence de la trappe | `PgUp` / `PgDn` | boutons + et - |
@@ -77,7 +110,7 @@ Bloqueur, bâtisseur d'escalier, creuseur vertical, mineur diagonal, foreur hori
 Pendant qu'un bâtisseur, un foreur ou un mineur travaille, les Bidules qui le suivent **attendent derrière lui** et
 le suivent à distance : ils ne tombent pas au bout d'un escalier inachevé.
 
-## Arsenal (10 armes)
+## Arsenal (11 armes)
 
 Chaque arme a un **stock limité par niveau**, un **coût en points** (réserve de départ 100, régénération 1 par seconde
 en campagne, 0,5 en duel) et un **temps de recharge**. Une explosion tue au plus 3 Bidules et épargne ceux d'un bouclier.
@@ -93,6 +126,7 @@ en campagne, 0,5 en duel) et un **temps de recharge**. Une explosion tue au plus
 | Jetpack | un Bidule monte de 88 px puis plane ; parachute de secours à l'arrêt du moteur |
 | Grappin | tire un Bidule vers un point d'ancrage à 110 px au plus, par un trajet libre |
 | Mine télécommandée | posée au sol, explose à l'ordre (rayon 26), tue amis et ennemis |
+| Brouilleur radar (duel) | désactive les armes, le pilotage et les détonations de l'adversaire pendant 10 s |
 | Char d'assaut | embarque 8 Bidules, laboure le sable, roule sur l'eau et la lave, écrase l'adversaire, sauve ses passagers à la sortie |
 
 ## Équilibrage proposé
@@ -113,6 +147,7 @@ Durées en secondes (30 pas par seconde). « Niveau » : rang de campagne où l'
 | Grappin | 10 | 5 s | 5 | 110 px | trajet ≤ 2 s | 23 |
 | Mine télécommandée | 15 | 8 s | 4 (6 posées) | explosion 26 | jusqu'à l'ordre | 8 |
 | Char d'assaut | 45 | 40 s | 2 | 8 passagers | 30 s | 26 |
+| Brouilleur radar | 30 | 60 s | 2 | l'adversaire | 10 s | duel seulement |
 
 Le grimpeur, compétence, arrive au niveau 4 (stock 3).
 
@@ -147,10 +182,10 @@ Mesures sur 6 cartes, camps échangés (12 parties par duel), reproductibles par
 | Duel | Résultat |
 |---|---|
 | Difficile contre Moyen, chemin seul (sans armes) | 4 victoires, 2, 6 nuls ; 13,3 Bidules sauvés contre 10,6 |
-| Difficile (armé) contre Moyen sans armes | 10 victoires, 1, 1 nul ; 10,9 contre 3,5 |
+| Difficile (armé) contre Moyen sans armes | 10 victoires, 1, 1 nul ; 11,1 contre 4,1 |
 | Moyen contre Facile | 5 victoires, 3, 4 nuls |
-| Difficile contre Facile | 8 victoires, 2, 2 nuls |
-| Difficile contre Moyen, tous armés | 4 victoires, 4, 4 nuls : égalité |
+| Difficile contre Facile | 8 victoires, 3, 1 nul |
+| Difficile contre Moyen, tous armés | 4 victoires, 5, 3 nuls : égalité |
 
 Lecture honnête : face à un joueur qui ne se défend pas par les armes, le Difficile gagne presque toujours ; entre deux
 IA qui sabotent en permanence, les ponts détruits se compensent et l'issue tient du hasard.
@@ -166,11 +201,14 @@ js/
   bidules/   bidule.js (marche, chute, attente, noyade, sortie)
   skills/    registry.js + blocker builder digger miner basher floater bomber climber
   weapons/   registry.js + recon kdrone satellite cannon shield zipline jetpack grapple mine tank
+  net/       netdef.js (version, partie, commandes, rôles : partagé avec le serveur)  netclient.js (session, lockstep)
   levels/    loader.js  level1-3.js (à la main)  generator.js (segments, cartes miroir)  campaign.js (40 niveaux, étoiles, sauvegarde)
   ai/        pathfinder.js (A* et simulations d'essai)  ai.js (contrôleur, trois profils, tactique des armes)
   render/    sprites.js themes.js camera.js particles.js renderer.js (entités, brouillard, thèmes)
   audio/     audio.js (effets, musique générative par univers)
   ui/        hud.js (compteurs, compétences, arsenal)  input.js (souris, molette, tactile, clavier)
+  ui/        + online.js (salon, chat, résultats en ligne)  editor.js (éditeur et partage)
+  pwa.js     service worker, installation, plein écran
   main.js    boucle, menus, visée des armes, résultats
 levels/      niveaux exportés en JSON (campagne complète, carte de duel)
 tests/       moteur, compétences, armes, campagne, IA (Node) et test de fumée navigateur
@@ -181,8 +219,9 @@ docs/ARCHITECTURE.md
 ## Tests
 
 ```bash
-npm test                      # environ 1 minute : déterminisme, compétences, 16 tests d'armes, 37 niveaux générés
-                              # joués par un robot, 40 niveaux au total, équité et hiérarchie de l'IA
+npm test                      # environ 3 minutes : moteur, 17 tests d'armes, 40 niveaux joués par un robot, IA,
+                              # réseau avec latence simulée, éditeur, PWA hors ligne (voir docs/PLAN-DE-TEST.md)
+npm run test:fast             # moteur seul, environ 30 secondes
 node tests/browser-smoke.js   # navigateur réel (nécessite Playwright) : menus, arsenal, duel jusqu'aux résultats
 ```
 

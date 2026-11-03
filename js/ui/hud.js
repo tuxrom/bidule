@@ -49,11 +49,11 @@
     }
 
     /** Arsenal du niveau : seules les armes débloquées ont un bouton. */
-    buildArmbar(sim) {
+    buildArmbar(sim, me) {
       const bar = $('armbar');
       bar.innerHTML = '';
       this.armButtons = {};
-      const p = sim.players[0];
+      const p = sim.players[me | 0];
       NS.Weapons.list.filter((w) => p.weapons[w.id]).forEach((w, i) => {
         const b = document.createElement('button');
         b.className = 'btn arm';
@@ -109,11 +109,11 @@
 
     /** Rafraîchit compteurs et boutons depuis l'état de la simulation. */
     update(sim, ui) {
-      const me = sim.players[0], vs = sim.mode === 'vs';
-      this.set('st-alive', String(sim.bidules.filter((b) => b.owner === 0).length));
+      const mi = ui.me | 0, me = sim.players[mi], vs = sim.mode === 'vs';
+      this.set('st-alive', String(sim.bidules.filter((b) => b.owner === mi).length));
       this.set('st-out', me.released + '/' + me.count);
       if (vs) {
-        const o = sim.players[1];
+        const o = sim.players[1 - mi];
         this.set('st-saved', me.saved + ' : ' + o.saved);
         $('st-saved').classList.toggle('ok', me.saved > o.saved);
       } else {
@@ -131,7 +131,9 @@
         const e = this.skillButtons[s.id];
         const n = me.skills[s.id] | 0;
         if (e.cnt.textContent !== String(n)) e.cnt.textContent = n;
-        e.el.disabled = n <= 0;
+        const barred = !!(ui.mask && !ui.mask.skills.has(s.id));        // compétence confiée au partenaire (coop)
+        e.el.disabled = n <= 0 || barred;
+        e.el.classList.toggle('partner', barred);
         e.el.classList.toggle('on', ui.tab === 'skills' && s.id === ui.skill);
       }
       for (const w of NS.Weapons.list) {
@@ -141,16 +143,22 @@
         if (e.cnt.textContent !== String(slot.stock)) e.cnt.textContent = slot.stock;
         const frac = slot.cd > 0 ? Math.min(1, slot.cd / w.cooldown) : 0;
         e.cd.style.height = (frac * 100).toFixed(0) + '%';
-        e.el.disabled = slot.stock <= 0;
+        const barred = !!(ui.mask && !ui.mask.weapons.has(w.id));
+        const jam = me.jammedUntil > sim.tick;
+        e.el.disabled = slot.stock <= 0 || barred || jam;
+        e.el.classList.toggle('partner', barred);
         e.el.classList.toggle('poor', me.points < w.cost && slot.stock > 0);
         e.el.classList.toggle('cooling', slot.cd > 0);
         e.el.classList.toggle('on', ui.tab === 'arms' && w.id === ui.weapon);
       }
       $('btn-undo').disabled = !ui.canUndo;
-      $('btn-undo').hidden = vs;
+      $('btn-undo').hidden = !ui.undoable;
       $('btn-rate-dec').disabled = me.rate <= me.rateMin;
       $('btn-rate-inc').disabled = me.rate >= NS.C.RATE_MAX;
       $('btn-boom').hidden = !ui.canBoom;
+      const jamLeft = Math.max(0, Math.ceil((me.jammedUntil - sim.tick) / NS.C.TICK_RATE));
+      $('jam-badge').hidden = jamLeft <= 0;
+      if (jamLeft > 0) $('jam-badge').textContent = 'Brouillé ' + jamLeft + ' s';
       const rev = Math.max(0, Math.ceil((me.revealUntil - sim.tick) / NS.C.TICK_RATE));
       $('reveal-badge').hidden = rev <= 0;
       if (rev > 0) $('reveal-badge').textContent = 'Reconnaissance ' + rev + ' s';

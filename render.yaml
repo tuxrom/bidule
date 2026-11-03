@@ -1,0 +1,18 @@
+# Render : « New > Blueprint » pointe vers ce fichier. Le WebSocket passe sur le même port que le HTTP.
+services:
+  - type: web
+    name: operation-mirage
+    runtime: node
+    plan: starter                  # le plan gratuit s'endort : les salons seraient perdus
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: bidules-data
+      mountPath: /var/data
+      sizeGB: 1

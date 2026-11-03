@@ -1,0 +1,21 @@
+# /etc/systemd/system/bidules.service : sudo systemctl enable --now bidules
+[Unit]
+Description=Operation Mirage (serveur de jeu)
+After=network.target
+
+[Service]
+User=bidules
+WorkingDirectory=/opt/bidules
+Environment=NODE_ENV=production PORT=3000 HOST=127.0.0.1 DATA_DIR=/var/lib/bidules
+ExecStartPre=/usr/bin/node tools/build-pwa.js
+ExecStart=/usr/bin/node server/server.js
+Restart=always
+RestartSec=2
+# Durcissement : le serveur n'a besoin d'écrire que dans son dossier de données.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/bidules /opt/bidules/sw-assets.js
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,27 @@
+# Fly.io : `fly launch --no-deploy` puis `fly deploy`. Une seule machine : les salons vivent en mémoire.
+app = "operation-mirage"
+primary_region = "cdg"
+
+[build]
+
+[env]
+  PORT = "8080"
+  DATA_DIR = "/data"
+
+[mounts]
+  source = "bidules_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"       # arrêter la machine ferait perdre les parties en cours
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "3s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"

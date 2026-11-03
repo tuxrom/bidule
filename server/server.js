@@ -69,6 +69,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (p === '/healthz') return sendJSON(res, 200, Object.assign({ ok: true }, manager.stats()));
     if (p === '/api/levels' && req.method === 'POST') {
+      if (Number(req.headers['content-length']) > MAX_LEVEL_BYTES + 100) { req.resume(); return sendJSON(res, 413, { error: 'niveau trop gros' }); }
       const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
       if (!allowPost(String(ip))) return sendJSON(res, 429, { error: 'trop de publications' });
       const body = JSON.parse(await readBody(req, MAX_LEVEL_BYTES + 100));

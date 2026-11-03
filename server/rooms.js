@@ -53,7 +53,8 @@ class Room {
       delay: this.game ? this.game.delay : null
     };
   }
-  pushInfo() { this.broadcast(this.info()); }
+  /** Chaque joueur reçoit l'état du salon avec SON numéro de place (`you`). */
+  pushInfo() { const i = this.info(); for (const c of this.clients) send(c, Object.assign({ you: this.slotOf(c) }, i)); }
 
   /* ------------------------------- Salon ------------------------------- */
 
@@ -241,12 +242,12 @@ class Room {
     c.ws = ws; c.connected = true;
     if (this.state === 'playing' && this.game) {
       c.pauseUsed += now() - (c.dropAt || now());
-      send(c, { type: 'room', ...this.info() });
+      send(c, Object.assign({ you: this.slotOf(c) }, this.info()));
       this.sendResync(c);
       this.broadcast({ type: 'peer', slot: this.slotOf(c), status: 'reconnected' }, c);
       if (this.clients.every((x) => x.connected)) this.resume();
     } else {
-      send(c, this.info());
+      send(c, Object.assign({ you: this.slotOf(c) }, this.info()));
     }
   }
 

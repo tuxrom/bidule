@@ -4,11 +4,15 @@
   "description": "Jeu de réflexion 2D en HTML5 Canvas : guidez des Bidules (soldats-robots) jusqu'à la sortie.",
   "private": true,
   "scripts": {
+    "prestart": "node tools/build-pwa.js",
     "start": "node server/server.js",
-    "test": "node tests/determinism.test.js && node tests/skills.test.js && node tests/weapons.test.js && node tests/solutions.test.js && node tests/campaign.test.js && node tests/ai.test.js && node tests/net.test.js",
+    "pretest": "node tools/build-pwa.js",
+    "test": "node tests/determinism.test.js && node tests/skills.test.js && node tests/weapons.test.js && node tests/solutions.test.js && node tests/campaign.test.js && node tests/ai.test.js && node tests/net.test.js && node tests/editor.test.js && node tests/pwa.test.js",
     "test:fast": "node tests/determinism.test.js && node tests/skills.test.js && node tests/weapons.test.js && node tests/solutions.test.js && node tests/campaign.test.js",
     "test:net": "node tests/net.test.js",
-    "export-levels": "node tools/export-levels.js"
+    "export-levels": "node tools/export-levels.js",
+    "build:pwa": "node tools/build-pwa.js",
+    "icons": "node tools/make-icons.js"
   },
   "license": "MIT",
   "dependencies": {

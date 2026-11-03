@@ -198,9 +198,74 @@ Le chiffrage complet est dans le README. La mise au point en duel a mis en évid
 * des escaliers adverses solides bloquaient les deux armées : briques par camp ;
 * des suivants renvoyés par un mur retombaient dans le gouffre derrière eux : état d'attente.
 
-Résultat restant à signaler : entre deux IA armées, il n'y a pas d'écart mesurable entre Difficile et Moyen (4 victoires contre 4 sur 12 parties,
-4 nuls), parce que les ponts détruits se compensent. La supériorité du Difficile est nette sur le chemin seul et face à un
+Résultat restant à signaler : entre deux IA armées, il n'y a pas d'écart mesurable entre Difficile et Moyen (4 victoires contre 5 sur 12 parties,
+3 nuls), parce que les ponts détruits se compensent. La supériorité du Difficile est nette sur le chemin seul et face à un
 adversaire qui ne tire pas.
+
+## Multijoueur en ligne
+
+### Lockstep déterministe ou instantanés ?
+
+| Critère | Lockstep (retenu) | Instantanés d'état |
+|---|---|---|
+| Trafic | Commandes seules : 30 à 80 octets chacune, quelques dizaines par minute | Terrain destructible (environ 500 Ko), Bidules, entités à 30 Hz ; même en différences, chaque explosion change des milliers de pixels |
+| Ce qui existe déjà | Simulation déterministe, empreinte d'état, journal de commandes, rejeu : tout est écrit et testé | Sérialisation et interpolation à écrire, avec des dégâts de terrain à répliquer |
+| Autorité | Le serveur exécute la même simulation : il date et ordonne les commandes, fait référence à la somme de contrôle, resynchronise | Autorité naturelle, état unique côté serveur |
+| Latence | Délai d'entrée de 100 à 500 ms, adapté à la mesure ; sans effet sur la fluidité d'affichage | Retour immédiat possible par prédiction, mais corrections visibles |
+| Brouillard de guerre | **Faiblesse** : chaque client simule tout, donc connaît les positions cachées | Le serveur peut filtrer ce qu'il envoie à chacun |
+| Risque principal | Une divergence de simulation entre machines (virgule flottante, ordre d'exécution) | Débit, pertes de paquets |
+
+Le jeu est une stratégie en temps réel : on donne des ordres à des unités autonomes, on ne pilote pas un avatar. Un délai d'entrée de
+quelques dixièmes de seconde est imperceptible, alors qu'un trafic d'état serait énorme. Le déterminisme est déjà garanti et mesuré, et
+le risque de divergence est traité par construction (trigonométrie sans `Math.sin`, ordre d'exécution stable, aléa à graine) puis
+par détection (somme de contrôle toutes les 2 s) et réparation (rejeu du journal).
+
+Le prix est la faiblesse du brouillard de guerre face à un client modifié, déclarée dans le protocole. Pour un jeu compétitif, il
+faudrait un modèle hybride : lockstep pour la logique, instantanés filtrés pour la visibilité.
+
+### Rôles
+
+* **Serveur** (`server/rooms.js`) : salons, horloge de partie à 30 pas par seconde qui n'attend jamais le plus lent, attribution
+  du pas d'exécution (pas courant + délai adaptatif), assainissement et autorisation des commandes, simulation de référence
+  (le même code que les clients, chargé par `server/engine.js`), comparaison des sommes de contrôle, journal, resynchronisation,
+  suspension et forfait.
+* **Client** (`js/net/netclient.js`) : connexion et reconnexion, mesure du RTT, simulation locale qui n'avance que jusqu'au pas
+  autorisé et accélère pour rattraper un retard, envoi des sommes de contrôle, reconstruction sur demande.
+* **Partagé** (`js/net/netdef.js`) : construction de la partie depuis sa configuration, validation des commandes, rôles de la
+  coopération, formule du délai : serveur et clients ne peuvent pas diverger sur ces points.
+
+Aucune interface n'est mêlée à la logique réseau : `NetSession` tourne sous Node, ce qui permet de tester le réseau avec de vrais
+clients (`tests/net.test.js`).
+
+### Choix de conception
+
+* **Une seule porte d'entrée** : en ligne comme hors ligne, l'interface appelle `Game.send(commande)`. Hors ligne, la simulation
+  l'applique tout de suite ; en ligne, le serveur la date, la numérote et la rediffuse. Le reste du jeu ne sait pas dans quel mode il est.
+* **Commandes datées dans le futur** : `Simulation.issue` appliquait aussitôt ; le lockstep emploie la file `sim.queue` (champ `tick`)
+  qui existait déjà. L'ordre global d'arrivée au serveur fixe l'ordre d'exécution à pas égal, donc le même chez tous.
+* **Le journal est le format de reconstruction** : reconnexion et resynchronisation envoient la configuration et le journal ; le
+  client rejoue (500 pas par image au plus). Une partie entière se rejoue en une ou deux secondes.
+* **Suspension plutôt que pénalité** : une coupure suspend l'horloge (30 s de grâce, 90 s au total par joueur) ; au-delà, forfait.
+* **Coopération** : une seule armée, deux émetteurs. Les rôles sont des listes de compétences et d'armes appliquées par le serveur
+  (une commande hors rôle est rejetée avant d'atteindre la simulation) et reflétées par l'interface (boutons du partenaire estompés).
+* **Brouilleur radar** : un champ `jammedUntil` par joueur, vérifié par la simulation elle-même (`weaponBlock`, `steer`,
+  `detonate`) : le brouillage vaut donc chez les trois exécutants sans cas particulier réseau.
+
+## Éditeur et partage de niveaux
+
+Un niveau de l'éditeur est un bitmap de 600 x 300 matériaux plus quelques réglages. Le **code** est un en-tête JSON et le terrain
+codé par plages (matériau, longueur en entier variable), le tout en base64 d'URL : environ 2,5 Ko pour un niveau typique, collable
+n'importe où. `Loader.decodeLevel` reconstruit le niveau en bornant toutes les valeurs, nettoie le nom, vérifie que la taille du
+terrain est exactement celle annoncée et refuse tout matériau inconnu : un code venu d'un inconnu ne peut décrire qu'un niveau.
+Le serveur garde ces chaînes sous un identifiant court (`NIVxxxxxx`), limite la taille (64 Ko) et le débit (10 publications par
+minute et par adresse) et n'en exécute jamais rien.
+
+## PWA
+
+Manifeste (nom, icônes dont maskable, mode `standalone` avec repli plein écran), service worker qui met toute l'application en cache à
+l'installation (liste et empreinte produites par `tools/build-pwa.js`, nom du cache = empreinte), cache d'abord pour l'application,
+réseau seul pour `/ws`, `/api` et `/healthz`. Le jeu en ligne détecte l'absence de réseau et le dit ; tout le reste fonctionne hors ligne.
+Le test `tests/pwa.test.js` recharge réellement la page sans réseau dans Chromium.
 
 ## Rendu, entrées, audio
 
@@ -218,7 +283,9 @@ adversaire qui ne tire pas.
 
 ## Limites connues
 
-* Pas de fluide : eau et lave sont statiques. Pas d'éditeur de niveaux ni de réseau : seuls les fondements existent.
+* Pas de fluide : eau et lave sont statiques.
+* Réseau : un serveur, un processus ; les salons vivent en mémoire et sont perdus si le serveur redémarre. Pas de comptes ni de classement. Le brouillard de guerre est une règle d'affichage (voir plus haut). L'IA ne joue pas en ligne.
+* Éditeur : une seule taille de carte (600 x 300), pas de décor ni de pièges posés à la main.
 * L'IA n'emploie ni tyrolienne, ni jetpack, ni grappin, ni char ; elle ne sait pas se sortir de tous les pièges que le
   sabotage crée (un pont détruit pendant la traversée coûte des Bidules).
 * Le niveau 2 écrit à la main (demi-tour par bloqueur) est hors de portée du planificateur.

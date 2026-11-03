@@ -46,6 +46,8 @@
       NS.Campaign.Save.load();
 
       this.sim = null;
+      this.me = 0;                   // camp du joueur local (0 sauf pour l'invité d'un duel en ligne)
+      this.net = null;               // NetSession en ligne
       this.ai = null;
       this.kind = 'campaign';        // 'campaign' | 'vs'
       this.levelIndex = 0;
@@ -108,6 +110,7 @@
       $('btn-rate-dec').onclick = () => this.adjustRate(-5);
       $('btn-rate-inc').onclick = () => this.adjustRate(5);
       $('btn-boom').onclick = () => this.detonate();
+      $('btn-chat').onclick = () => { const b = $('chatbar'); b.hidden = !b.hidden; if (!b.hidden) { b.innerHTML = this.emojiRow(); this.bindEmojiRow(); } };
       $('btn-fire').onclick = () => this.confirm();
       $('aim-angle').oninput = (e) => { this.aim.angle = Number(e.target.value); this.hud.showAim(true, this.aim.angle, this.aim.power); };
       $('aim-power').oninput = (e) => { this.aim.power = Number(e.target.value); this.hud.showAim(true, this.aim.angle, this.aim.power); };
@@ -125,10 +128,16 @@
         case 'campaign': this.showCampaign(arg === undefined ? this.worldView : Number(arg)); break;
         case 'world': this.showCampaign(Number(arg)); break;
         case 'versus': this.showVersus(); break;
+        case 'online': this.showOnline(); break;
+        case 'editor': this.showEditor(); break;
+        case 'ed': this.edAction(arg); break;
+        case 'net': this.netAction(arg); break;
+        case 'install': this.installApp(); break;
+        case 'fullscreen': this.toggleFullscreen(); break;
         case 'play': this.startCampaign(Number(arg)); break;
         case 'vs': this.startVS(arg); break;
         case 'next': this.startCampaign(this.levelIndex + 1); break;
-        case 'retry': if (this.kind === 'vs') this.startVS(this.vsDifficulty); else this.startCampaign(this.levelIndex); break;
+        case 'retry': if (this.kind === 'vs') this.startVS(this.vsDifficulty); else if (this.kind === 'custom') this.startCustom(this.customDef); else this.startCampaign(this.levelIndex); break;
         case 'resume': this.closeOverlay(); break;
         case 'help': this.showHelp(); break;
         case 'title': this.showTitle(); break;
@@ -139,9 +148,11 @@
     /* ----------------------------------- Parties ----------------------------------- */
 
     /** Installe une simulation : caméra, interface, musique. */
-    begin(def, kind) {
+    begin(def, kind, sim, me) {
       this.kind = kind;
-      this.sim = new NS.Simulation(def);
+      this.me = me | 0;
+      this.sim = sim || new NS.Simulation(def);
+      this.renderedSim = this.sim;
       this.renderer.resize();
       this.renderer.setLevel(this.sim);
       this.cam.setWorld(def.width, def.height);
@@ -149,8 +160,8 @@
       const z = Math.min(this.cam.vw / 260, this.cam.vh / 200);
       this.cam.zoom = Math.max(this.cam.minZoom(), Math.min(4, Math.max(2, z)));
       const vwW = this.cam.vw / this.cam.zoom, vwH = this.cam.vh / this.cam.zoom;
-      const h = this.sim.players[0].hatch;
-      this.cam.x = h.x - vwW * 0.3;
+      const h = this.sim.players[this.me].hatch;
+      this.cam.x = h.x - vwW * (h.dir < 0 ? 0.7 : 0.3);        // on voit devant soi, dans le sens de marche
       this.cam.y = h.y - vwH * 0.4;
       this.cam.clamp();
       this.cam.snap(this.renderer.dpr);
@@ -168,7 +179,7 @@
       this.skill = first ? first.id : null;
       document.body.dataset.theme = def.theme || 'desert';
       this.hud.setLevelName(def.name);
-      this.hud.buildArmbar(this.sim);
+      this.hud.buildArmbar(this.sim, this.me);
       this.hud.setTab('skills');
       this.hud.showAim(false);
       this.hud.setPaused(false);
@@ -202,21 +213,24 @@
       this.hud.toast(def.hint, 6000);
     }
 
-    restart() { if (!this.sim) return; if (this.kind === 'vs') this.startVS(this.vsDifficulty); else this.startCampaign(this.levelIndex); }
+    restart() {
+      if (!this.sim || this.kind === 'net' || this.kind === 'net-over') return;
+      if (this.kind === 'vs') this.startVS(this.vsDifficulty); else if (this.kind === 'custom') this.startCustom(this.customDef); else this.startCampaign(this.levelIndex);
+    }
 
     /* ---------------------------------- Sélections --------------------------------- */
 
     /** Chiffre du clavier : compétence ou arme selon l'onglet visible. */
     selectIndex(i) {
       if (this.tab === 'arms') {
-        const ids = NS.Weapons.list.filter((w) => this.sim && this.sim.players[0].weapons[w.id]).map((w) => w.id);
+        const ids = NS.Weapons.list.filter((w) => this.sim && this.sim.players[this.me].weapons[w.id]).map((w) => w.id);
         if (ids[i]) this.selectWeapon(ids[i]);
       } else this.selectSkillIndex(i);
     }
 
     selectSkillIndex(i) {
       const s = NS.Skills.list[i];
-      if (!s || !this.sim || (this.sim.players[0].skills[s.id] | 0) <= 0) return;
+      if (!s || !this.sim || (this.sim.players[this.me].skills[s.id] | 0) <= 0 || this.barredSkill(s.id)) return;
       this.skill = s.id;
       this.tab = 'skills';
       this.hud.setTab('skills');
@@ -233,8 +247,10 @@
     }
 
     selectWeapon(id) {
-      const sim = this.sim, p = sim.players[0], w = NS.Weapons.byId[id], slot = p.weapons[id];
+      const sim = this.sim, p = sim.players[this.me], w = NS.Weapons.byId[id], slot = p.weapons[id];
       this.audio.unlock();
+      if (this.barredWeapon(id)) return this.refuse('Arme de ton partenaire');
+      if (p.jammedUntil > sim.tick) return this.refuse('Brouillé par l\'adversaire');
       if (!slot || slot.stock <= 0) return this.refuse('Stock épuisé');
       if (slot.cd > 0) return this.refuse('En recharge (' + Math.ceil(slot.cd / NS.C.TICK_RATE) + ' s)');
       if (p.points < w.cost) return this.refuse('Points insuffisants (' + w.cost + ' requis)');
@@ -250,7 +266,7 @@
 
     /* ---------------------------------- Commandes ---------------------------------- */
 
-    togglePause() { this.setPaused(!this.paused); }
+    togglePause() { if (this.kind === 'net') return; this.setPaused(!this.paused); }
     setPaused(p) { if (!this.sim) return; this.paused = p; this.hud.setPaused(p); }
     setSpeed(s) { this.speed = s; this.hud.setSpeed(s); }
     cycleSpeed() { this.setSpeed(this.speed === 1 ? 2 : this.speed === 2 ? 4 : 1); }
@@ -259,12 +275,12 @@
 
     adjustRate(d) {
       if (!this.sim || this.overlayOpen) return;
-      this.sim.issue({ type: 'rate', value: this.sim.players[0].rate + d });
+      this.send({ type: 'rate', value: this.sim.players[this.me].rate + d });
     }
 
     /** Annule la dernière compétence ou arme (solo uniquement) : retour exact à l'état d'avant l'ordre. */
     undo() {
-      if (!this.sim || this.overlayOpen || this.kind === 'vs' || !this.undoStack.length) return;
+      if (!this.sim || this.overlayOpen || this.kind !== 'campaign' || !this.undoStack.length) return;
       this.sim.restore(this.undoStack.pop());
       this.renderer.invalidate(this.sim.terrain);
       this.fx.clear();
@@ -273,17 +289,36 @@
     }
 
     pushUndo() {
-      if (this.kind === 'vs') return;
+      if (this.kind !== 'campaign') return;
       this.undoStack.push(this.sim.snapshot());
       if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();
     }
 
-    /** Tire une arme du joueur : l'instantané d'annulation n'est gardé que si l'ordre réussit. */
+    /**
+     * Porte unique des ordres du joueur. Hors ligne : la simulation les applique aussitôt (`player` = mon camp).
+     * En ligne : on les PROPOSE au serveur, qui les date, leur attribue un propriétaire et les diffuse ; ils
+     * s'exécutent quelques pas plus tard, en même temps chez tout le monde.
+     */
+    send(cmd) {
+      if (this.kind === 'net') { this.net.sendCommand(cmd); return true; }
+      cmd.player = this.me;
+      return this.sim.issue(cmd);
+    }
+
+    /** Tire une arme du joueur : en solo l'instantané d'annulation n'est gardé que si l'ordre réussit. */
     fire(cmd) {
       const sim = this.sim;
       if (!sim || this.overlayOpen || sim.status !== 'running') return false;
-      const snap = this.kind === 'vs' ? null : sim.snapshot();
-      cmd.type = 'weapon'; cmd.player = 0;
+      cmd.type = 'weapon';
+      if (this.kind === 'net') {                    // contrôle local d'abord : refus immédiat plutôt qu'un ordre perdu
+        const why = sim.weaponBlock(sim.players[this.me], cmd.weapon, cmd);
+        if (why || this.barredWeapon(cmd.weapon)) { this.refuse(why || 'Arme de ton partenaire'); return false; }
+        this.net.sendCommand(cmd);
+        this.audio.sfx('select');
+        return true;
+      }
+      const snap = this.kind === 'campaign' ? sim.snapshot() : null;
+      cmd.player = this.me;
       if (!sim.issue(cmd)) { this.refuse(sim.denied || 'Impossible'); return false; }
       if (snap) { this.undoStack.push(snap); if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift(); }
       this.flushEvents();
@@ -300,7 +335,7 @@
     /** Fait sauter mines et drone du joueur. */
     detonate() {
       if (!this.sim || this.overlayOpen) return;
-      if (this.sim.issue({ type: 'detonate', player: 0 })) this.flushEvents();
+      if (this.send({ type: 'detonate' })) this.flushEvents();
     }
 
     /* ----------------------------------- Pointeur ----------------------------------- */
@@ -311,7 +346,7 @@
       const reach = (touch ? 24 : 10) / this.cam.zoom + 5;
       let best = null, bestScore = Infinity;
       for (const b of this.sim.bidules) {
-        if (b.owner !== 0 || b.state === 'rider') continue;
+        if (b.owner !== this.me || b.state === 'rider') continue;
         const d = Math.hypot(b.x - w.x, b.y - 5 - w.y);
         if (d > reach) continue;
         const score = d + (skill && !this.sim.canAssign(b, skill) ? 1000 : 0);
@@ -327,15 +362,15 @@
       if (this.tab === 'arms') { if (this.weapon) this.weaponTap(w, sx, sy, touch); return; }
       const b = this.pickOwn(sx, sy, touch, this.skill);
       if (!b || !this.skill) return;
-      if (!this.sim.canAssign(b, this.skill)) { this.audio.sfx('deny'); return; }
+      if (!this.sim.canAssign(b, this.skill) || this.barredSkill(this.skill)) { this.audio.sfx('deny'); return; }
       this.pushUndo();
-      this.sim.issue({ type: 'assign', id: b.id, skill: this.skill, player: 0 });
+      this.send({ type: 'assign', id: b.id, skill: this.skill });
       this.flushEvents();
     }
 
     /** Un toucher alors qu'une arme est choisie : selon son mode de visée. */
     weaponTap(w, sx, sy, touch) {
-      const sim = this.sim, p = sim.players[0], def = NS.Weapons.byId[this.weapon];
+      const sim = this.sim, p = sim.players[this.me], def = NS.Weapons.byId[this.weapon];
       const x = Math.round(w.x), y = Math.round(w.y);
       switch (def.target) {
         case 'point': this.fire({ weapon: def.id, x, y }); break;
@@ -360,7 +395,7 @@
           break;
         }
         case 'pilot': {
-          const drone = sim.entities.find((e) => e.kind === 'drone' && e.owner === 0);
+          const drone = sim.entities.find((e) => e.kind === 'drone' && e.owner === this.me);
           if (!drone) { if (this.fire({ weapon: def.id, x, y })) this.hud.toast(HINTS.pilot, 4000); }
           else this.detonate();
           break;
@@ -374,9 +409,9 @@
       this.ptr = this.cam.screenToWorld(sx, sy);
       if (this.tab === 'arms' && this.weapon === 'kdrone' && !this.overlayOpen) {
         const now = performance.now();
-        if (now - this.lastSteer > 90 && this.sim.entities.some((e) => e.kind === 'drone' && e.owner === 0)) {
+        if (now - this.lastSteer > 90 && this.sim.entities.some((e) => e.kind === 'drone' && e.owner === this.me)) {
           this.lastSteer = now;
-          this.sim.issue({ type: 'steer', player: 0, x: Math.round(this.ptr.x), y: Math.round(this.ptr.y) });
+          this.send({ type: 'steer', x: Math.round(this.ptr.x), y: Math.round(this.ptr.y) });
         }
       }
     }
@@ -391,7 +426,7 @@
 
     /** Aperçus dessinés dans le monde : trajectoire du canon, câble, portée du bouclier... */
     overlay(ctx, s) {
-      const sim = this.sim, p = sim.players[0];
+      const sim = this.sim, p = sim.players[this.me];
       if (this.tab !== 'arms' || !this.weapon || this.overlayOpen) return;
       const lw = 1 / s * this.renderer.dpr;
       ctx.lineWidth = lw;
@@ -453,11 +488,12 @@
       this.time += dt;
       this.adaptQuality(dt);
       this.input.update(dt);
+      if (this.kind === 'net' && this.net) this.netFrame(dt);       // le réseau fait avancer la simulation
       const sim = this.sim;
       if (!sim) return;
 
-      const running = !this.paused && !this.overlayOpen && sim.status === 'running';
-      if (running) {
+      const running = this.kind !== 'net' && !this.paused && !this.overlayOpen && sim.status === 'running';
+      if (this.kind === 'net') { this.flushEvents(); this.fx.update(dt); } else if (running) {
         this.acc += dt * this.speed;
         let n = 0;
         while (this.acc >= STEP && n < MAX_STEPS_PER_FRAME && sim.status === 'running') {
@@ -474,15 +510,16 @@
         this.fx.update(dt);
       }
 
-      const me = sim.players[0];
+      const me = sim.players[this.me];
       this.renderer.draw(sim, this.fx, {
-        time: this.time, hoverId: this.hoverId, hoverOk: this.hoverOk,
+        me: this.me, time: this.time, hoverId: this.hoverId, hoverOk: this.hoverOk,
         aimAngle: this.tab === 'arms' && this.weapon === 'cannon' ? this.aim.angle : null,
         overlay: (ctx, s) => this.overlay(ctx, s)
       });
       this.hud.update(sim, {
-        tab: this.tab, skill: this.skill, weapon: this.weapon, canUndo: this.undoStack.length > 0,
-        canBoom: sim.entities.some((e) => e.owner === 0 && (e.kind === 'mine' || e.kind === 'drone'))
+        me: this.me, tab: this.tab, skill: this.skill, weapon: this.weapon, canUndo: this.undoStack.length > 0, undoable: this.kind === 'campaign',
+        mask: this.coopMask(),
+        canBoom: sim.entities.some((e) => e.owner === this.me && (e.kind === 'mine' || e.kind === 'drone'))
       });
       // L'arme est déselectionnée quand elle ne peut plus partir (drone en vol : on garde le pilotage).
       if (this.weapon && this.weapon !== 'kdrone') {
@@ -490,7 +527,8 @@
         if (slot && (slot.cd > 0 || slot.stock <= 0 || me.points < w.cost)) { this.weapon = null; this.tgt = null; this.hud.showAim(false); }
       }
 
-      if (sim.status !== 'running' && !this.overlayOpen) {
+      if (this.kind === 'net') this.netEndCheck(dt);
+      else if (sim.status !== 'running' && !this.overlayOpen) {
         this.resultTimer += dt;
         if (this.resultTimer > 1.4) this.showResult();
       }
@@ -522,7 +560,9 @@
         '<div class="menu-grid">' +
         '<button class="btn primary" data-action="campaign">Campagne<small>40 niveaux, 4 univers, 3 étoiles par niveau (' + st + '/120)</small></button>' +
         '<button class="btn" data-action="versus">Contre l\'ordinateur<small>Deux armées, une carte miroir, un arsenal identique</small></button>' +
-        '<button class="btn" data-action="help">Commandes<small>Souris, clavier et écran tactile</small></button></div></div>');
+        '<button class="btn" data-action="online">En ligne<small>Duel à deux, ou coopération sur une même armée</small></button>' +
+        '<button class="btn" data-action="editor">Éditeur de niveaux<small>Dessine, teste et partage par code</small></button>' +
+        '<button class="btn" data-action="help">Commandes<small>Souris, clavier et écran tactile</small></button></div>' + this.pwaButtons() + '</div>');
       $('logo').getContext('2d').drawImage(NS.Sprites.frames[0].walk0.r, 0, 0);
     }
 
@@ -556,6 +596,10 @@
     }
 
     showPause() {
+      if (this.kind === 'net') {
+        return this.openOverlay('<div class="card"><h2>Partie en ligne</h2><p>La partie continue pour tout le monde pendant que ce menu est ouvert.</p>' +
+          '<div class="row"><button class="btn primary" data-action="resume">Reprendre</button><button class="btn" data-action="net" data-arg="resign">Abandonner</button></div></div>');
+      }
       this.openOverlay('<div class="card"><h2>Pause</h2><p>' + this.sim.def.name + '</p>' +
         '<div class="row"><button class="btn primary" data-action="resume">Reprendre</button>' +
         '<button class="btn" data-action="retry">Recommencer</button>' +
@@ -591,6 +635,7 @@
     }
 
     showResult() {
+      if (this.kind === 'custom') return this.showCustomResult();
       const sim = this.sim, me = sim.players[0], won = sim.status === 'won';
       const elapsed = fmtTime(sim.tick);
       let html;
@@ -642,5 +687,8 @@
     }
   }
 
+  NS.OnlineUI.install(Game);
+  NS.EditorUI.install(Game);
+  NS.PWA.install(Game);
   window.addEventListener('DOMContentLoaded', () => { window.game = new Game(); });
 })(window);
