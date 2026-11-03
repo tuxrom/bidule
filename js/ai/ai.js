@@ -40,7 +40,7 @@
     },
     hard: {
       think: 2, lag: 1, err: 0, planner: true, maxActions: 2, replan: 200, weaponEvery: 30, anticipate: true,
-      weapons: ['recon', 'kdrone', 'satellite', 'cannon', 'shield', 'mine'], aimTolerance: 22, reserve: 15
+      weapons: ['recon', 'kdrone', 'satellite', 'cannon', 'shield', 'mine', 'jammer'], aimTolerance: 22, reserve: 15
     }
   };
 
@@ -279,6 +279,11 @@
           this.slammed = true;
           if (this.cmd({ type: 'weapon', weapon: 'satellite', x })) return;
         }
+      }
+      // Brouilleur (difficile) : juste avant une frappe, pour que l'adversaire ne puisse pas lever de bouclier.
+      const other = sim.players[1 - this.pi];
+      if (this.ready('jammer', 25) && top.n >= 3 && other.jammedUntil <= sim.tick && (this.ready('cannon') || this.ready('kdrone'))) {
+        if (this.cmd({ type: 'weapon', weapon: 'jammer' })) return;
       }
       // Drone kamikaze : surtout après une reconnaissance, il va chercher le groupe.
       if (this.ready('kdrone') && (top.n >= 2 || top.focus) && (pr.anticipate ? sim.tick < p.revealUntil || top.n >= 3 : top.n >= 3)) {

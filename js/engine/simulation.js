@@ -41,6 +41,7 @@
       rateMin: rate.min || C.RATE_MIN, rate: rate.start || 50,
       spawnCountdown: C.HATCH_DELAY, released: 0, saved: 0, dead: 0, deadBy: {},
       revealUntil: 0,
+      jammedUntil: 0,              // brouilleur radar adverse : aucune arme ni télécommande avant ce pas
       stats: { skills: 0, weapons: 0, spent: 0, kills: 0 }
     };
   }
@@ -132,6 +133,7 @@
         }
         case 'weapon': return this.fireWeapon(p, cmd);
         case 'steer': {
+          if (p.jammedUntil > this.tick) return false;
           const e = this.entities.find((x) => x.kind === 'drone' && x.owner === p.id);
           if (!e) return false;
           e.tx = Math.max(0, Math.min(this.terrain.w - 1, cmd.x));
@@ -139,6 +141,7 @@
           return true;
         }
         case 'detonate': {
+          if (p.jammedUntil > this.tick) return false;
           let n = 0;
           for (const e of this.entities) {
             if (e.owner !== p.id) continue;
@@ -164,6 +167,7 @@
     weaponBlock(p, id, cmd) {
       const w = NS.Weapons.byId[id], slot = p.weapons[id];
       if (!w || !slot) return 'Arme indisponible';
+      if (p.jammedUntil > this.tick) return 'Brouillé par l\'adversaire (' + Math.ceil((p.jammedUntil - this.tick) / C.TICK_RATE) + ' s)';
       if (slot.stock <= 0) return 'Stock épuisé';
       if (slot.cd > 0) return 'En recharge';
       if (p.points < w.cost) return 'Points insuffisants';
@@ -407,7 +411,7 @@
       const mix = (v) => { h = Math.imul(h ^ (v | 0), 0x01000193) >>> 0; };
       mix(this.tick); mix(this.rng.getState());
       for (const p of this.players) {
-        mix(p.released); mix(p.saved); mix(p.dead); mix(p.rate); mix(p.points);
+        mix(p.released); mix(p.saved); mix(p.dead); mix(p.rate); mix(p.points); mix(p.jammedUntil); mix(p.revealUntil);
         for (const id in p.weapons) { mix(p.weapons[id].stock); mix(p.weapons[id].cd); }
       }
       for (const b of this.bidules) {

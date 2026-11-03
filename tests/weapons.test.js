@@ -3,7 +3,7 @@ const { NS } = require('./helpers');
 const assert = require('assert');
 const M = NS.M;
 
-const ALL_W = { recon: 3, kdrone: 3, satellite: 2, cannon: 4, shield: 3, zipline: 3, jetpack: 5, grapple: 5, mine: 4, tank: 2 };
+const ALL_W = { recon: 3, kdrone: 3, satellite: 2, cannon: 4, shield: 3, zipline: 3, jetpack: 5, grapple: 5, mine: 4, tank: 2, jammer: 2 };
 function mini(ops, extra) {
   const sim = new NS.Simulation(Object.assign({
     id: 't', name: 't', width: 600, height: 300, seed: 9, hatch: { x: 30, y: 10, dir: 1 }, exit: { x: 580, y: 249 },
@@ -219,4 +219,19 @@ const ok = (m) => console.log('OK ' + (++n) + '. ' + m);
   s.restore(snap);
   assert.strictEqual(s.hash(), h); assert.strictEqual(s.entities.length, 0); assert.strictEqual(s.players[0].weapons.shield.stock, 3);
   ok('annulation restaure points, stock et entités');
+}
+
+// Brouilleur radar : l'adversaire ne tire plus, ne pilote plus, ne détone plus, pendant 10 s ; moi si.
+{
+  const s = mini([floor], TWO);
+  fire(s, 'mine', { x: 300, y: 249, player: 1 });
+  assert.ok(s.players[1].weapons.mine.stock === 3, 'la mine adverse est posée');
+  assert.ok(fire(s, 'jammer'));
+  assert.ok(!fire(s, 'shield', { x: 100, y: 240, player: 1 })); assert.ok(/Brouillé/.test(s.denied));
+  assert.ok(!s.issue({ type: 'detonate', player: 1 }), 'pas de détonation télécommandée');
+  assert.ok(fire(s, 'shield', { x: 100, y: 240 }), 'le brouilleur ne gêne pas son propriétaire');
+  run(s, 301);
+  assert.ok(fire(s, 'shield', { x: 150, y: 240, player: 1 }), 'le brouillage prend fin au bout de 10 s');
+  assert.ok(s.issue({ type: 'detonate', player: 1 }));
+  ok('brouilleur radar : 10 s sans arme, sans pilotage, sans détonation');
 }

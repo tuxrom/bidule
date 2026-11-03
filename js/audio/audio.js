@@ -130,6 +130,7 @@
         case 'shield': this.tone('sine', 300, 900, 0.3, 0.15); this.tone('sine', 450, 1350, 0.3, 0.08); break;
         case 'jet': this.noise(0.12, 0.2, 'bandpass', 2500, 1500); break;
         case 'grapple': this.tone('square', 1500, 500, 0.12, 0.1); this.tone('triangle', 200, 260, 0.2, 0.15, 0.1); break;
+        case 'jam': this.noise(0.6, 0.5, 'bandpass', 3000, 800); this.tone('square', 1200, 150, 0.5, 0.12); break;
         case 'tank': this.tone('sawtooth', 70, 50, 0.4, 0.3); this.noise(0.3, 0.3, 'lowpass', 400, 100); break;
         case 'win': [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone('square', f, f, 0.16, 0.16, i * 0.14)); break;
         case 'lose': [392, 349, 311, 262].forEach((f, i) => this.tone('sawtooth', f, f * 0.98, 0.25, 0.14, i * 0.2)); break;
@@ -153,6 +154,7 @@
         case 'chute': this.sfx('chute', 0.1); break;
         case 'recon': this.sfx('recon'); break;
         case 'lock': this.sfx('lock'); break;
+        case 'jam': this.sfx('jam'); break;
         case 'beam': this.sfx('beam'); break;
         case 'cannon': this.sfx('cannon'); break;
         case 'jet': this.sfx('jet', 0.2); break;
