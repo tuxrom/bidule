@@ -47,12 +47,17 @@
    */
   function solve(sim, p, tx, ty) {
     let best = null;
-    for (let a = 20; a <= 78; a += 2) {
-      for (let pw = 15; pw <= 100; pw += 3) {
-        const r = trajectory(sim, p, a, pw);
-        if (!r.hit) continue;
+    const dir = p.cannon.dir;
+    // Pour chaque angle, la portée croît avec la puissance : une recherche dichotomique suffit
+    // (une vingtaine d'angles x 7 essais, au lieu de tout balayer).
+    for (let a = 20; a <= 78; a += 3) {
+      let lo = 10, hi = 100;
+      for (let i = 0; i < 7; i++) {
+        const mid = (lo + hi) >> 1, r = trajectory(sim, p, a, mid);
+        if (!r.hit) { lo = mid; continue; }
         const d = Math.abs(r.x - tx) + Math.abs(r.y - ty) * 0.5;
-        if (!best || d < best.d) best = { angle: a, power: pw, d, x: r.x, y: r.y, t: r.t };
+        if (!best || d < best.d) best = { angle: a, power: mid, d, x: r.x, y: r.y, t: r.t };
+        if ((r.x - tx) * dir < 0) lo = mid; else hi = mid;
       }
     }
     return best;

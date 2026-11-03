@@ -160,7 +160,7 @@ Bidules cachés.
 * Heuristique : distance à la sortie. Plan **partiel** (2 actions) pour limiter le coût ; le creuseur est exclu (son puits
   laisse tomber tous les suivants).
 * Les 40 niveaux de campagne sont planifiés sans lire leurs plans (39 sur 40, l'ancien niveau 2 manuel exigeant un demi-tour
-  par bloqueur) ; coût typique : 50 à 150 ms par plan, replanifié toutes les 7 à 12 s et jamais pendant un chantier.
+  par bloqueur) ; coût typique : 50 à 190 ms par plan, replanifié toutes les 7 à 12 s et jamais pendant un chantier.
 
 ### Contrôleur et profils
 
@@ -198,8 +198,8 @@ Le chiffrage complet est dans le README. La mise au point en duel a mis en évid
 * des escaliers adverses solides bloquaient les deux armées : briques par camp ;
 * des suivants renvoyés par un mur retombaient dans le gouffre derrière eux : état d'attente.
 
-Résultat restant à signaler : entre deux IA armées, l'écart Difficile / Moyen est faible (3 victoires contre 4 sur 12 parties,
-5 nuls), parce que les ponts détruits se compensent. La supériorité du Difficile est nette sur le chemin seul et face à un
+Résultat restant à signaler : entre deux IA armées, il n'y a pas d'écart mesurable entre Difficile et Moyen (4 victoires contre 4 sur 12 parties,
+4 nuls), parce que les ponts détruits se compensent. La supériorité du Difficile est nette sur le chemin seul et face à un
 adversaire qui ne tire pas.
 
 ## Rendu, entrées, audio
@@ -223,4 +223,4 @@ adversaire qui ne tire pas.
   sabotage crée (un pont détruit pendant la traversée coûte des Bidules).
 * Le niveau 2 écrit à la main (demi-tour par bloqueur) est hors de portée du planificateur.
 * La fluidité sur un vrai téléphone n'a pas été mesurée. Dans un Chromium sans GPU, le duel contre l'IA difficile tourne à
-  55 images/s en x4 ; le planificateur coûte 50 à 150 ms par plan, soit une saccade visible sur appareil lent.
+  52 images/s en x4 ; le planificateur coûte 50 à 190 ms par plan (le premier plan, au départ, produit une image de 270 ms), soit une saccade visible sur appareil lent.

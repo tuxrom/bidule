@@ -148,9 +148,9 @@ Mesures sur 6 cartes, camps échangés (12 parties par duel), reproductibles par
 |---|---|
 | Difficile contre Moyen, chemin seul (sans armes) | 4 victoires, 2, 6 nuls ; 13,3 Bidules sauvés contre 10,6 |
 | Difficile (armé) contre Moyen sans armes | 10 victoires, 1, 1 nul ; 10,9 contre 3,5 |
-| Moyen contre Facile | 6 victoires, 2, 4 nuls |
-| Difficile contre Facile | 7 victoires, 3, 2 nuls |
-| Difficile contre Moyen, tous armés | 3 victoires, 4, 5 nuls : quasi-égalité |
+| Moyen contre Facile | 5 victoires, 3, 4 nuls |
+| Difficile contre Facile | 8 victoires, 2, 2 nuls |
+| Difficile contre Moyen, tous armés | 4 victoires, 4, 4 nuls : égalité |
 
 Lecture honnête : face à un joueur qui ne se défend pas par les armes, le Difficile gagne presque toujours ; entre deux
 IA qui sabotent en permanence, les ponts détruits se compensent et l'issue tient du hasard.
