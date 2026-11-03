@@ -69,9 +69,10 @@
     /**
      * Efface (en air) les pixels destructibles d'un disque.
      * Si `rng` est fourni, le bord du cratère est irrégulier (déterministe).
+     * Avec `breakRock`, la roche cède aussi (seuls l'eau et la lave restent).
      * @returns {number} pixels retirés
      */
-    carveCircle(cx, cy, r, rng) {
+    carveCircle(cx, cy, r, rng, breakRock) {
       const r2 = r * r, inner = (r - 2) * (r - 2);
       let n = 0;
       for (let y = cy - r; y <= cy + r; y++) {
@@ -82,11 +83,38 @@
           if (d2 > r2) continue;
           if (rng && d2 > inner && rng.next() < 0.4) continue;
           const i = y * this.w + x;
-          if (DIGGABLE[this.data[i]]) { this.data[i] = M.AIR; n++; }
+          const m = this.data[i];
+          if (DIGGABLE[m] || (breakRock && m === M.ROCK)) { this.data[i] = M.AIR; n++; }
         }
       }
       if (n) this.markDirty(cx - r, cy - r, cx + r, cy + r);
       return n;
+    }
+
+    /** Perce une colonne de largeur 2*half+1 sur toute la hauteur, roche comprise (frappe orbitale). */
+    carveColumn(x, half) {
+      let n = 0;
+      for (let y = 0; y < this.h; y++) {
+        for (let xx = Math.max(0, x - half); xx <= Math.min(this.w - 1, x + half); xx++) {
+          const i = y * this.w + xx, m = this.data[i];
+          if (m === M.SAND || m === M.ROCK || m === M.BRICK) { this.data[i] = M.AIR; n++; }
+        }
+      }
+      if (n) this.markDirty(x - half, 0, x + half, this.h - 1);
+      return n;
+    }
+
+    /** Cherche une position de pieds près de (x, y) : colonne libre et sol dessous. */
+    findStandable(x, y, radius) {
+      let best = null, bd = Infinity;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const px = x + dx, py = y + dy, d = dx * dx + dy * dy;
+          if (d >= bd || px < 1 || px >= this.w - 1 || py < 12 || py >= this.h - 2) continue;
+          if (this.isSolid(px, py + 1) && this.freeColumn(px, py, 10)) { best = { x: px, y: py }; bd = d; }
+        }
+      }
+      return best;
     }
 
     /** Efface un rectangle (bornes incluses) de pixels destructibles. */

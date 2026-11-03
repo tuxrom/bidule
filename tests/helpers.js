@@ -5,10 +5,12 @@
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const FILES = [
-  'js/core/constants.js', 'js/core/rng.js', 'js/engine/terrain.js',
-  'js/skills/registry.js', 'js/bidules/bidule.js',
+  'js/core/constants.js', 'js/core/rng.js', 'js/core/mathx.js', 'js/engine/terrain.js',
+  'js/skills/registry.js', 'js/weapons/registry.js', 'js/bidules/bidule.js',
   'js/skills/blocker.js', 'js/skills/builder.js', 'js/skills/digger.js', 'js/skills/miner.js',
-  'js/skills/basher.js', 'js/skills/floater.js', 'js/skills/bomber.js',
+  'js/skills/basher.js', 'js/skills/floater.js', 'js/skills/bomber.js', 'js/skills/climber.js',
+  'js/weapons/recon.js', 'js/weapons/kdrone.js', 'js/weapons/satellite.js', 'js/weapons/cannon.js', 'js/weapons/shield.js',
+  'js/weapons/zipline.js', 'js/weapons/jetpack.js', 'js/weapons/grapple.js', 'js/weapons/mine.js', 'js/weapons/tank.js',
   'js/levels/loader.js', 'js/levels/level1.js', 'js/levels/level2.js', 'js/levels/level3.js',
   'js/engine/simulation.js'
 ];

@@ -49,6 +49,19 @@
     levels: [],
     register(def) { this.levels.push(def); },
 
+    /**
+     * Liste des configurations de joueurs d'un niveau. Un niveau solo décrit
+     * son unique joueur à la racine (hatch, exit, count...) ; un niveau
+     * « contre l'ordinateur » fournit `players: [...]`, chaque entrée
+     * héritant des champs racine qu'elle ne redéfinit pas.
+     */
+    playersOf(def) {
+      const base = { hatch: def.hatch, exit: def.exit, count: def.count, goal: def.goal, skills: def.skills,
+        weapons: def.weapons, points: def.points, rate: def.rate, cannon: def.cannon };
+      if (!def.players) return [base];
+      return def.players.map((p) => Object.assign({}, base, p));
+    },
+
     /** Lit un niveau depuis un texte JSON (fichier chargé par fetch, éditeur...). */
     fromJSON(text) { return JSON.parse(text); },
 

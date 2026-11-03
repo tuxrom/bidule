@@ -13,16 +13,21 @@
   const C = NS.C, M = NS.M;
 
   class Bidule {
-    constructor(id, x, y, dir) {
+    constructor(id, x, y, dir, owner) {
       this.id = id;
+      this.owner = owner | 0;   // joueur propriétaire (0 = joueur, 1 = adversaire)
       this.x = x;
       this.y = y;
       this.dir = dir;          // 1 = vers la droite, -1 = vers la gauche
-      this.state = 'fall';     // fall | walk | block | build | dig | mine | bash | dead | saved
+      this.state = 'fall';     // fall | walk | block | build | dig | mine | bash | climb | jet | zip | grapple | rider | dead | saved
       this.t = 0;              // compteur propre à l'état (animation, cadence)
       this.fallDist = 0;       // pixels tombés depuis le dernier appui
       this.fallTicks = 0;
       this.floater = false;    // possède le parachute
+      this.climber = false;    // possède la compétence grimpeur
+      this.fuel = 0;           // carburant du jetpack
+      this.path = null;        // trajet du grappin
+      this.pi = 0;             // avancement sur ce trajet
       this.floating = false;   // parachute actuellement ouvert
       this.bomb = 0;           // compte à rebours du kamikaze (0 = inactif)
       this.bricks = 0;         // briques restantes (bâtisseur)
@@ -43,23 +48,27 @@
       b.t = 0;
     },
 
-    die(b, sim, cause) {
+    /** Tue un Bidule. `by` : joueur à l'origine de la mort (pour les statistiques de frags). */
+    die(b, sim, cause, by) {
       if (b.state === 'dead' || b.state === 'saved') return;
       b.state = 'dead';
-      sim.dead++;
+      const p = sim.players[b.owner];
+      p.dead++;
+      p.deadBy[cause] = (p.deadBy[cause] || 0) + 1;
+      if (by !== undefined && by >= 0 && by !== b.owner) sim.players[by].stats.kills++;
       sim.emit('die', b.x, b.y, cause);
     },
 
     save(b, sim) {
       b.state = 'saved';
-      sim.saved++;
-      sim.emit('saved', b.x, b.y);
+      sim.players[b.owner].saved++;
+      sim.emit('saved', b.x, b.y, b.owner);
     },
 
     explode(b, sim) {
       sim.terrain.carveCircle(b.x, b.y, C.BOMB_RADIUS, sim.rng);
-      sim.emit('explode', b.x, b.y - 3);
-      this.die(b, sim, 'explode');
+      sim.emit('explode', b.x, b.y - 3, 16);
+      this.die(b, sim, 'explode', b.owner);
     },
 
     /** Éjecte un Bidule coincé dans la matière (brique posée sur lui, par exemple). */
@@ -85,7 +94,11 @@
       for (let k = 0; k <= C.MAX_CLIMB; k++) {
         if (t.freeColumn(nx, b.y - k, C.BODY_H)) { ny = b.y - k; break; }
       }
-      if (ny < 0) { b.dir = -b.dir; return 'turned'; }
+      if (ny < 0) {
+        if (b.climber) { b.state = 'climb'; b.t = 0; b.n = 0; return 'climb'; }   // le grimpeur escalade
+        b.dir = -b.dir;
+        return 'turned';
+      }
       let d = 0;
       while (d <= C.MAX_DROP && !t.isSolid(nx, ny + 1)) { ny++; d++; }
       if (d > C.MAX_DROP) {      // plus de sol : on passe le bord et on tombe
@@ -106,7 +119,7 @@
       }
       const fn = NS.Behaviors[b.state];
       if (fn) fn(b, sim);
-      if (b.state === 'dead' || b.state === 'saved') return;
+      if (b.state === 'dead' || b.state === 'saved' || b.state === 'rider') return;
 
       const t = sim.terrain;
       // Sorti de la carte : perdu.
@@ -138,7 +151,7 @@
     const vy = b.floating ? 1 : (b.fallTicks < 6 ? 1 : b.fallTicks < 14 ? 2 : 3);
     for (let i = 0; i < vy; i++) {
       if (t.isSolid(b.x, b.y + 1)) {
-        if (!b.floating && b.fallDist > C.FATAL_FALL) { Physics.die(b, sim, 'splat'); return; }
+        if (!b.floating && b.fallDist > C.FATAL_FALL) { Physics.die(b, sim, 'splat', -1); return; }
         b.state = 'walk';
         b.floating = false;
         b.fallDist = 0;
@@ -148,8 +161,8 @@
       b.y++;
       b.fallDist++;
       const m = t.get(b.x, b.y);
-      if (m === M.WATER) { Physics.die(b, sim, 'drown'); return; }
-      if (m === M.LAVA) { Physics.die(b, sim, 'burn'); return; }
+      if (m === M.WATER) { Physics.die(b, sim, 'drown', -1); return; }
+      if (m === M.LAVA) { Physics.die(b, sim, 'burn', -1); return; }
     }
   };
 
