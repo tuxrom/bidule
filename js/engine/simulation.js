@@ -125,6 +125,12 @@
           this.emit('assign', b.x, b.y, cmd.skill);
           return true;
         }
+        case 'dismiss': {           // éliminer un de ses Bidules (bloqueur devenu gênant, Bidule coincé) : gratuit, illimité, compte comme perdu
+          const b = this.bidules.find((x) => x.id === cmd.id);
+          if (!this.canDismiss(b, p.id)) return false;
+          NS.Physics.die(b, this, 'dismiss', -1);
+          return true;
+        }
         case 'rate': {
           const v = Math.max(p.rateMin, Math.min(C.RATE_MAX, cmd.value | 0));
           if (v === p.rate) return false;
@@ -161,6 +167,12 @@
       if ((this.players[b.owner].skills[skillId] | 0) <= 0) return false;
       if (b.state === 'dead' || b.state === 'saved' || b.state === 'rider') return false;
       return def.canAssign(b, this);
+    }
+
+    /** Ce Bidule peut-il être éliminé par son propriétaire ? (pas un passager de char : il n'est plus sur la carte) */
+    canDismiss(b, owner) {
+      return !!b && this.status === 'running' && b.owner === owner &&
+        b.state !== 'dead' && b.state !== 'saved' && b.state !== 'rider';
     }
 
     /** Motif pour lequel l'arme ne peut pas partir, ou null si elle le peut. */

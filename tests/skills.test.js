@@ -63,6 +63,30 @@ const ok = (name) => console.log('OK ' + (++n) + '. ' + name);
   assert.strictEqual(k.state, 'block'); assert.ok(w.x < 200 && w.dir === -1 || w.x < 160, 'le marcheur doit être repoussé, x=' + w.x);
   ok('bloqueur renvoie les Bidules');
 }
+// Éliminer : un bloqueur gênant disparaît (gratuit, sans cratère), les autres repassent ; refusé pour un Bidule adverse ou déjà mort.
+{
+  const s = mini([floor]);
+  const k = add(s, 200, 249, 'walk');
+  s.skills.blocker = 1;
+  s.issue({ type: 'assign', id: k.id, skill: 'blocker' });
+  const w = add(s, 150, 249, 'walk');
+  run(s, 40);
+  const solid = s.terrain.countRect(150, 230, 250, 290, NS.SOLID), stock = JSON.stringify(s.skills);
+  const foe = add(s, 300, 249, 'walk'); foe.owner = 1;
+  assert.strictEqual(s.issue({ type: 'dismiss', id: foe.id }), false, 'un Bidule adverse ne peut pas être éliminé');
+  assert.strictEqual(s.issue({ type: 'dismiss', id: k.id }), true);
+  assert.strictEqual(k.state, 'dead'); assert.strictEqual(s.dead, 1); assert.strictEqual(s.players[0].deadBy.dismiss, 1);
+  assert.strictEqual(s.issue({ type: 'dismiss', id: k.id }), false, 'déjà mort');
+  assert.strictEqual(s.terrain.countRect(150, 230, 250, 290, NS.SOLID), solid, 'aucun cratère');
+  assert.strictEqual(JSON.stringify(s.skills), stock, 'aucun stock consommé');
+  s.bidules = s.bidules.filter((b) => b !== foe);
+  run(s, 120);
+  assert.ok(w.x > 210, 'le marcheur doit passer là où était le bloqueur, x=' + w.x);
+  assert.deepStrictEqual(NS.Net.sanitizeCommand({ type: 'dismiss', id: 7, evil: 1 }), { type: 'dismiss', id: 7 });
+  assert.strictEqual(NS.Net.sanitizeCommand({ type: 'dismiss', id: -3 }), null);
+  assert.strictEqual(NS.Net.sanitizeCommand({ type: 'dismiss', id: '7' }), null);
+  ok('éliminer : le bloqueur disparaît sans cratère ni stock, la voie se libère ; adverse ou mort refusés');
+}
 // Kamikaze : cratère, seul le porteur meurt.
 {
   const s = mini([floor]);

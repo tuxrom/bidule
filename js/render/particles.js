@@ -56,6 +56,7 @@
           if (ev.extra === 'drown') this.burst(x, y - 2, 16, 70, 0.6, WATER, 1, 180, 50);
           else if (ev.extra === 'burn') this.burst(x, y - 3, 22, 80, 0.7, FIRE, 1, 60, 40);
           else if (ev.extra === 'splat') this.burst(x, y - 3, 22, 90, 0.8, METAL, 1, 240, 40);
+          else if (ev.extra === 'dismiss') this.burst(x, y - 5, 14, 50, 0.6, METAL, 1, -30, 30);
           break;
         case 'saved':
           this.burst(x, y - 5, 18, 60, 0.9, SPARK, 1, -40, 30);

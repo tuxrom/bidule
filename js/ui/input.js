@@ -7,7 +7,7 @@
  * Tactile : un appui = appliquer ; deux doigts = pincer pour zoomer et
  *           glisser pour défiler (un doigt seul ne déplace jamais la carte, ce
  *           qui évite les mauvaises manipulations).
- * Clavier : chiffres 1 à 8 (compétences) ou 1 à 0 (arsenal), Tab, Entrée, B (détoner), etc. (event.code pour les
+ * Clavier : chiffres 1 à 8 (compétences) ou 1 à 0 (arsenal), Tab, Entrée, B (détoner), X (éliminer), etc. (event.code pour les
  *           chiffres, afin de fonctionner aussi sur AZERTY sans Maj).
  */
 (function (G) {
@@ -143,6 +143,7 @@
         case 'f': case 'F': g.cycleSpeed(); break;
         case 'u': case 'U': g.undo(); break;
         case 'b': case 'B': g.detonate(); break;
+        case 'x': case 'X': case 'Delete': g.toggleKill(); break;
         case 'm': case 'M': g.toggleMute(); break;
         case 'r': case 'R': g.restart(); break;
         case 'h': case 'H': case '?': g.showHelp(); break;

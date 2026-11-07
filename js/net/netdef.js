@@ -9,8 +9,8 @@
   const NS = (G.Bidules = G.Bidules || {});
 
   /** Incrémenté à chaque changement de règles ou de protocole : un client d'une autre version est refusé. */
-  const PROTOCOL = 1;
-  const BUILD = '1.0.0';
+  const PROTOCOL = 2;          // 2 : commande « dismiss » (éliminer un Bidule)
+  const BUILD = '1.1.0';
   const TURN = 3;                 // pas de simulation par message `step` (100 ms)
   const HASH_EVERY = 60;          // somme de contrôle toutes les 2 s de jeu
   const DELAY_MIN = 3, DELAY_MAX = 15;   // délai d'entrée, en pas (100 ms à 500 ms)
@@ -62,6 +62,7 @@
         const id = int(raw.id, 1, 1e6);
         return id && typeof raw.skill === 'string' && NS.Skills.byId[raw.skill] ? { type: 'assign', id, skill: raw.skill } : null;
       }
+      case 'dismiss': { const id = int(raw.id, 1, 1e6); return id ? { type: 'dismiss', id } : null; }
       case 'rate': { const v = int(raw.value, 1, 99); return v ? { type: 'rate', value: v } : null; }
       case 'weapon': {
         if (typeof raw.weapon !== 'string' || !NS.Weapons.byId[raw.weapon]) return null;

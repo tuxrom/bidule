@@ -91,6 +91,7 @@ publication de niveaux demandent le serveur.
 | Canon : viser | toucher la carte, ou curseurs angle et puissance ; `Entrée` ou « Tirer » | idem |
 | Drone kamikaze | déplacer le curseur pour piloter ; clic ou `B` pour exploser | glisser le doigt ; « Détoner » |
 | Détoner mines et drone | `B` | bouton « Détoner » |
+| Éliminer un Bidule (bloqueur gênant, Bidule coincé) : gratuit, compte comme perdu | `X` ou `Suppr`, puis clic sur le Bidule | bouton tête de mort, puis appui sur le Bidule |
 | Zoom | molette, `+` / `-` | pincement à deux doigts |
 | Défiler | glisser, flèches, `Maj` + molette | glissement à deux doigts |
 | Messages rapides (en ligne) | bouton 😀 | bouton 😀 |

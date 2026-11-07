@@ -14,7 +14,8 @@
     undo: '<svg viewBox="0 0 24 24"><path d="M9 7H5V3M5 7c3-4 10-4 13 1s0 10-6 11"/></svg>',
     mute: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM17 9l4 6M21 9l-4 6"/></svg>',
     sound: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16 8c2 2 2 6 0 8M19 5c4 4 4 10 0 14"/></svg>',
-    menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'
+    menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    kill: '<svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="6"/><path d="M9 20h6M10 16v4M14 16v4M10 9h.01M14 9h.01"/></svg>'
   };
 
   const $ = (id) => document.getElementById(id);
@@ -27,6 +28,7 @@
       this.buildSkillbar();
       $('btn-undo').innerHTML = ICONS.undo;
       $('btn-menu').innerHTML = ICONS.menu;
+      $('btn-kill').innerHTML = ICONS.kill;
       this.setMuted(false);
       this.setPaused(false);
     }
@@ -134,7 +136,7 @@
         const barred = !!(ui.mask && !ui.mask.skills.has(s.id));        // compétence confiée au partenaire (coop)
         e.el.disabled = n <= 0 || barred;
         e.el.classList.toggle('partner', barred);
-        e.el.classList.toggle('on', ui.tab === 'skills' && s.id === ui.skill);
+        e.el.classList.toggle('on', ui.tab === 'skills' && !ui.kill && s.id === ui.skill);
       }
       for (const w of NS.Weapons.list) {
         const e = this.armButtons[w.id];
@@ -153,6 +155,8 @@
       }
       $('btn-undo').disabled = !ui.canUndo;
       $('btn-undo').hidden = !ui.undoable;
+      $('btn-kill').classList.toggle('on', !!ui.kill);
+      $('btn-kill').setAttribute('aria-pressed', String(!!ui.kill));
       $('btn-rate-dec').disabled = me.rate <= me.rateMin;
       $('btn-rate-inc').disabled = me.rate >= NS.C.RATE_MAX;
       $('btn-boom').hidden = !ui.canBoom;

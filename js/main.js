@@ -29,7 +29,7 @@
   };
   const CAUSES = [
     ['Chutes', ['splat']], ['Noyés', ['drown']], ['Brûlés', ['burn']], ['Pièges', ['trap']],
-    ['Kamikazes', ['explode']], ['Armes adverses ou amies', ['blast', 'shell', 'drone', 'mine', 'beam', 'crush']], ['Hors de la carte', ['oob']]
+    ['Kamikazes', ['explode']], ['Armes adverses ou amies', ['blast', 'shell', 'drone', 'mine', 'beam', 'crush']], ['Hors de la carte', ['oob']], ['Éliminés', ['dismiss']]
   ];
   const fmtTime = (ticks) => { const s = Math.round(ticks / NS.C.TICK_RATE); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
@@ -105,6 +105,7 @@
       $('btn-x2').onclick = () => this.setSpeed(this.speed === 2 ? 1 : 2);
       $('btn-x4').onclick = () => this.setSpeed(this.speed === 4 ? 1 : 4);
       $('btn-undo').onclick = () => this.undo();
+      $('btn-kill').onclick = () => { this.audio.unlock(); this.toggleKill(); };
       $('btn-mute').onclick = () => { this.audio.unlock(); this.toggleMute(); };
       $('btn-menu').onclick = () => this.toggleMenu();
       $('btn-rate-dec').onclick = () => this.adjustRate(-5);
@@ -174,6 +175,7 @@
       this.hoverId = 0;
       this.tgt = null;
       this.weapon = null;
+      this.killMode = false;
       this.tab = 'skills';
       const first = NS.Skills.list.find((s) => (def.skills[s.id] | 0) > 0);
       this.skill = first ? first.id : null;
@@ -232,6 +234,7 @@
       const s = NS.Skills.list[i];
       if (!s || !this.sim || (this.sim.players[this.me].skills[s.id] | 0) <= 0 || this.barredSkill(s.id)) return;
       this.skill = s.id;
+      this.killMode = false;
       this.tab = 'skills';
       this.hud.setTab('skills');
       this.audio.sfx('select');
@@ -241,6 +244,7 @@
       if (!this.sim || $('btn-tab').hidden) return;
       this.tab = this.tab === 'skills' ? 'arms' : 'skills';
       this.tgt = null;
+      this.killMode = false;
       this.hud.setTab(this.tab);
       this.hud.showAim(this.tab === 'arms' && this.weapon === 'cannon', this.aim.angle, this.aim.power);
       this.audio.sfx('select');
@@ -254,12 +258,23 @@
       if (!slot || slot.stock <= 0) return this.refuse('Stock épuisé');
       if (slot.cd > 0) return this.refuse('En recharge (' + Math.ceil(slot.cd / NS.C.TICK_RATE) + ' s)');
       if (p.points < w.cost) return this.refuse('Points insuffisants (' + w.cost + ' requis)');
-      this.weapon = id; this.tab = 'arms'; this.tgt = null;
+      this.weapon = id; this.tab = 'arms'; this.tgt = null; this.killMode = false;
       this.audio.sfx('select');
       this.hud.setTab('arms');
       this.hud.showAim(w.target === 'aim', this.aim.angle, this.aim.power);
       if (w.target === 'none') { this.fire({ weapon: id }); this.weapon = null; }
       else this.hud.toast(w.label + ' : ' + HINTS[w.target], 4200);
+    }
+
+    /** Bouton Éliminer : le prochain Bidule touché disparaît (bloqueur devenu gênant, Bidule coincé). Un seul à la fois. */
+    toggleKill() {
+      if (!this.sim || this.overlayOpen || this.sim.status !== 'running') return;
+      this.killMode = !this.killMode;
+      if (this.killMode) {
+        if (this.tab !== 'skills') { this.tab = 'skills'; this.tgt = null; this.hud.setTab('skills'); this.hud.showAim(false); }
+        this.hud.toast('Touche le Bidule à éliminer (il compte comme perdu).', 2600);
+      }
+      this.audio.sfx('select');
     }
 
     refuse(msg) { this.hud.toast(msg, 1800); this.audio.sfx('deny'); }
@@ -359,6 +374,15 @@
       if (!this.sim || this.overlayOpen || this.sim.status !== 'running') return;
       const w = this.cam.screenToWorld(sx, sy);
       this.ptr = w;
+      if (this.killMode) {
+        const k = this.pickOwn(sx, sy, touch);
+        if (!k || !this.sim.canDismiss(k, this.me)) { this.audio.sfx('deny'); return; }
+        this.pushUndo();
+        this.send({ type: 'dismiss', id: k.id });
+        this.killMode = false;
+        this.flushEvents();
+        return;
+      }
       if (this.tab === 'arms') { if (this.weapon) this.weaponTap(w, sx, sy, touch); return; }
       const b = this.pickOwn(sx, sy, touch, this.skill);
       if (!b || !this.skill) return;
@@ -418,9 +442,9 @@
 
     hover(sx, sy) {
       if (!this.sim || sx < 0) { this.hoverId = 0; this.canvas.classList.remove('can-assign'); return; }
-      const b = this.pickOwn(sx, sy, false, this.tab === 'skills' ? this.skill : null);
+      const b = this.pickOwn(sx, sy, false, this.tab === 'skills' && !this.killMode ? this.skill : null);
       this.hoverId = b ? b.id : 0;
-      this.hoverOk = !!(b && (this.tab === 'arms' || (this.skill && this.sim.canAssign(b, this.skill))));
+      this.hoverOk = !!(b && (this.killMode ? this.sim.canDismiss(b, this.me) : this.tab === 'arms' || (this.skill && this.sim.canAssign(b, this.skill))));
       this.canvas.classList.toggle('can-assign', this.hoverOk);
     }
 
@@ -517,7 +541,7 @@
         overlay: (ctx, s) => this.overlay(ctx, s)
       });
       this.hud.update(sim, {
-        me: this.me, tab: this.tab, skill: this.skill, weapon: this.weapon, canUndo: this.undoStack.length > 0, undoable: this.kind === 'campaign',
+        me: this.me, tab: this.tab, skill: this.skill, kill: this.killMode, weapon: this.weapon, canUndo: this.undoStack.length > 0, undoable: this.kind === 'campaign',
         mask: this.coopMask(),
         canBoom: sim.entities.some((e) => e.owner === this.me && (e.kind === 'mine' || e.kind === 'drone'))
       });
@@ -615,6 +639,7 @@
         '<kbd>Tab</kbd><span>Basculer compétences / arsenal</span>' +
         '<kbd>Entrée</kbd><span>Tirer le canon</span>' +
         '<kbd>B</kbd><span>Détoner mines et drone</span>' +
+        '<kbd>X / Suppr</kbd><span>Éliminer un Bidule (puis le toucher)</span>' +
         '<kbd>P / Espace</kbd><span>Pause (ordres possibles en pause)</span>' +
         '<kbd>F</kbd><span>Vitesse x1, x2, x4</span>' +
         '<kbd>U / Ctrl+Z</kbd><span>Annuler (campagne)</span>' +

@@ -172,6 +172,7 @@
           if (ev.extra === 'splat') this.sfx('splat', 0.08);
           else if (ev.extra === 'drown') this.sfx('drown', 0.08);
           else if (ev.extra === 'burn') this.sfx('burn', 0.08);
+          else if (ev.extra === 'dismiss') this.sfx('deny', 0.08);
           break;
       }
     }

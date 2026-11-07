@@ -1,5 +1,5 @@
 /* Fichier généré par tools/build-pwa.js : ne pas modifier à la main. */
-self.VERSION = '208a6d47d6';
+self.VERSION = '15eb34d5ba';
 self.ASSETS = [
   "./",
   "index.html",
