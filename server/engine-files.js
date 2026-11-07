@@ -13,5 +13,5 @@ module.exports = [
   'js/weapons/zipline.js', 'js/weapons/jetpack.js', 'js/weapons/grapple.js', 'js/weapons/mine.js', 'js/weapons/tank.js',
   'js/weapons/jammer.js',
   'js/levels/loader.js', 'js/levels/level1.js', 'js/levels/level2.js', 'js/levels/level3.js', 'js/levels/generator.js',
-  'js/engine/simulation.js', 'js/levels/campaign.js', 'js/ai/pathfinder.js', 'js/ai/ai.js', 'js/net/netdef.js', 'js/net/netclient.js'
+  'js/engine/simulation.js', 'js/engine/solver.js', 'js/levels/campaign.js', 'js/levels/daily.js', 'js/ai/pathfinder.js', 'js/ai/ai.js', 'js/net/netdef.js', 'js/engine/replay.js', 'js/net/netclient.js'
 ];

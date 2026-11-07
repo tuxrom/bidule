@@ -345,8 +345,19 @@
         if (vis || e.kind === 'beam') draw(ctx, e, sim, time, vis);
       }
 
-      // Bidules.
+      // Fantôme : les Bidules du meilleur passage, en transparence (un niveau solo n'a qu'un camp).
       const F = NS.Sprites.frames;
+      if (view.ghosts && view.ghosts.length) {
+        ctx.globalAlpha = 0.3;
+        for (const b of view.ghosts) {
+          if (b.state === 'rider') continue;
+          const f = F[0][NS.Sprites.frameFor(b)];
+          ctx.drawImage(b.dir >= 0 ? f.r : f.l, Math.round(b.x) - 4, Math.round(b.y) - 9);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      // Bidules.
       for (const b of sim.bidules) {
         if (b.state === 'rider') continue;
         if (b.owner !== this.me && !sim.canSee(this.me, b.x, b.y)) continue;      // adversaire dans le brouillard

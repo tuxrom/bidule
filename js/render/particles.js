@@ -58,6 +58,9 @@
           else if (ev.extra === 'splat') this.burst(x, y - 3, 22, 90, 0.8, METAL, 1, 240, 40);
           else if (ev.extra === 'dismiss') this.burst(x, y - 5, 14, 50, 0.6, METAL, 1, -30, 30);
           break;
+        case 'release':
+          this.burst(x, y - 5, 10, 40, 0.5, SPARK, 1, -20, 20);
+          break;
         case 'saved':
           this.burst(x, y - 5, 18, 60, 0.9, SPARK, 1, -40, 30);
           break;

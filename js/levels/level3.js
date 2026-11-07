@@ -12,6 +12,7 @@
     "width": 1400, "height": 480, "seed": 3003,
     "hatch": { "x": 80, "y": 135, "dir": 1 },
     "exit": { "x": 1250, "y": 229 },
+    "plan": [{ "skill": "basher", "x0": 545, "x1": 554, "y": 229 }, { "skill": "builder", "x0": 692, "x1": 699, "y": 229 }, { "skill": "builder", "x0": 990, "x1": 997, "y": 229 }, { "skill": "builder", "x0": 1052, "x1": 1061, "y": 229, "st": ["walk", "build"] }],
     "count": 30, "goal": 50, "timeLimit": 360,
     "rate": { "min": 20, "start": 30 },
     "skills": { "blocker": 3, "builder": 5, "digger": 1, "miner": 1, "basher": 3, "floater": 3, "bomber": 3 },

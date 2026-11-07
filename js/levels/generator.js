@@ -200,7 +200,7 @@
       rate: { min: 20, start: 40 },
       skills: skillStocks(plan, P.slack, d),
       decor, terrain: ops,
-      plan                       // règles de solution (tests uniquement)
+      plan                       // règles de solution (tests, indices, démonstration : voir solver.js)
     };
   }
 

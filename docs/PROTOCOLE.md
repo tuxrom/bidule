@@ -3,7 +3,7 @@
 Transport : **WebSocket** (`ws://hôte/ws`, ou `wss://` derrière HTTPS), messages **JSON texte**, un objet par message, champ
 `type` obligatoire. Taille maximale d'un message : 16 Ko. Le serveur ferme ou ignore tout le reste.
 
-Version : `protocol = 1` (constante `Bidules.Net.PROTOCOL` dans `js/net/netdef.js`). Elle change à chaque modification des
+Version : `protocol = 3` (constante `Bidules.Net.PROTOCOL` dans `js/net/netdef.js`). Elle change à chaque modification des
 règles de simulation ou des messages : un client d'une autre version est refusé (`error` code `version`), car deux versions
 du moteur ne produiraient pas le même état.
 
@@ -69,6 +69,8 @@ end -> room (retour au salon, état « lobby »)
 | `type` | Champs | Effet |
 |---|---|---|
 | `assign` | `id`, `skill` | Donne une compétence au Bidule `id`. |
+| `dismiss` | `id` | Élimine un de ses Bidules (compte comme perdu). |
+| `release` | `id` | Libère un de ses bloqueurs, qui reprend sa marche. En coop : rôle qui a le bloqueur. |
 | `rate` | `value` 1-99 | Cadence de la trappe. |
 | `weapon` | `weapon` + selon l'arme : `x`,`y` / `id` / `x1`,`y1`,`x2`,`y2` / `angle`,`power` | Tire une arme. |
 | `steer` | `x`, `y` | Cible du drone kamikaze. |

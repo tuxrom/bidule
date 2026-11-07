@@ -87,6 +87,36 @@ const ok = (name) => console.log('OK ' + (++n) + '. ' + name);
   assert.strictEqual(NS.Net.sanitizeCommand({ type: 'dismiss', id: '7' }), null);
   ok('éliminer : le bloqueur disparaît sans cratère ni stock, la voie se libère ; adverse ou mort refusés');
 }
+// Libérer : le bloqueur reprend sa marche (vivant, sans rendre la compétence) ; seulement un bloqueur à soi.
+{
+  const s = mini([floor]);
+  const k = add(s, 200, 249, 'walk');
+  s.skills.blocker = 1;
+  s.issue({ type: 'assign', id: k.id, skill: 'blocker' });
+  const w = add(s, 150, 249, 'walk');
+  run(s, 40);
+  const foe = add(s, 300, 249, 'block'); foe.owner = 1;
+  assert.strictEqual(s.issue({ type: 'release', id: foe.id }), false, 'le bloqueur adverse reste');
+  assert.strictEqual(s.issue({ type: 'release', id: w.id }), false, 'un marcheur n\'est pas un bloqueur');
+  assert.strictEqual(s.issue({ type: 'release', id: k.id }), true);
+  assert.strictEqual(k.state, 'walk'); assert.strictEqual(s.dead, 0); assert.strictEqual(s.skills.blocker, 0);
+  assert.strictEqual(s.issue({ type: 'release', id: k.id }), false, 'déjà libéré');
+  s.bidules = s.bidules.filter((b) => b !== foe);
+  run(s, 120);
+  assert.ok(w.x > 210, 'la voie est libre, x=' + w.x);
+  assert.deepStrictEqual(NS.Net.sanitizeCommand({ type: 'release', id: 4, x: 1 }), { type: 'release', id: 4 });
+  assert.ok(!NS.Net.allowed({ type: 'release', id: 4 }, 'coop', 1, true) && NS.Net.allowed({ type: 'release', id: 4 }, 'coop', 0, true), 'coop : réservé à l\'ingénieur (bloqueurs)');
+  ok('libérer : le bloqueur repart sans mourir, compétence non rendue ; adverse ou marcheur refusés');
+}
+// Indices : une compétence donnée près de la fenêtre d'une règle la couvre ; la suivante devient l'indice.
+{
+  const plan = NS.Campaign.all()[0].plan;
+  assert.strictEqual(NS.Solver.nextRule(plan, []), 0);
+  assert.strictEqual(NS.Solver.nextRule(plan, [{ skill: 'builder', x: 452, y: 339 }]), 1);
+  assert.strictEqual(NS.Solver.nextRule(plan, [{ skill: 'digger', x: 452, y: 339 }]), 0, 'mauvaise compétence');
+  assert.strictEqual(NS.Solver.nextRule(plan, [{ skill: 'builder', x: 446, y: 339 }, { skill: 'basher', x: 690, y: 340 }]), -1);
+  ok('indices : étapes du plan couvertes par les ordres du joueur');
+}
 // Kamikaze : cratère, seul le porteur meurt.
 {
   const s = mini([floor]);

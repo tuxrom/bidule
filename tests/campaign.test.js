@@ -12,30 +12,12 @@ assert.strictEqual(levels.length, 40);
 assert.deepStrictEqual([...new Set(levels.map((l) => l.world))], ['desert', 'ruins', 'arctic', 'orbital']);
 assert.strictEqual(new Set(levels.map((l) => l.id)).size, 40, 'identifiants uniques');
 
-function solve(def) {
-  const sim = new NS.Simulation(def);
-  const done = new Set();
-  while (sim.status === 'running') {
-    (def.plan || []).forEach((r, i) => {
-      if (done.has(i) || (r.after && sim.tick < r.after)) return;
-      // Le robot donne la compétence au Bidule de TÊTE parmi ceux qui sont dans la fenêtre.
-      let lead = null;
-      for (const b of sim.bidules) {
-        if (b.state === 'walk' && b.dir === (r.dir || 1) && b.x >= r.x0 && b.x <= r.x1 && Math.abs(b.y - r.y) <= 2 && sim.canAssign(b, r.skill)) {
-          if (!lead || b.x > lead.x) lead = b;
-        }
-      }
-      if (lead) { sim.issue({ type: 'assign', id: lead.id, skill: r.skill }); done.add(i); }
-    });
-    sim.step();
-  }
-  return sim;
-}
+const solve = (def) => NS.Solver.solve(def);
 
 let fails = 0;
 const rows = [];
 levels.forEach((def, i) => {
-  if (!def.plan) return;                     // niveaux écrits à la main : voir solutions.test.js
+  assert.ok(def.plan && def.plan.length, def.id + ' : plan de solution manquant (indices et démonstration en dépendent)');
   const sim = solve(def);
   const pct = Math.round((sim.players[0].saved * 100) / def.count);
   const stars = NS.Campaign.stars(sim);

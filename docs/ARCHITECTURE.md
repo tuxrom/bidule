@@ -281,10 +281,28 @@ Le test `tests/pwa.test.js` recharge réellement la page sans réseau dans Chrom
   puissance), affinée par deux curseurs.
 * **Audio** : effets et musique synthétisés par Web Audio ; la musique change de gamme, de tempo et de timbre selon l'univers.
 
+## Robot, indices, rediffusions
+
+Chaque niveau porte un **plan de solution** (`def.plan` : quelle compétence, dans quelle fenêtre de positions). Le générateur
+l'écrit pour les 37 niveaux générés ; les trois niveaux écrits à la main en ont un aussi. `engine/solver.js` est le robot qui
+applique ce plan dans la vraie simulation : les tests vérifient que chaque niveau est gagné par son plan, le jeu s'en sert pour
+les **indices** (première règle que les ordres du joueur ne couvrent pas), le **tutoriel** des niveaux 1 à 3 et la **démonstration**.
+Le défi du jour vérifie aussi son niveau avec le robot avant de le proposer (graine suivante sinon : même résultat chez tous).
+
+Une **rediffusion** (`engine/replay.js`) est la référence du niveau plus le journal compact des commandes appliquées (`sim.log`,
+que l'annulation et le retour arrière tronquent déjà). Relue, chaque commande repasse par `Net.sanitizeCommand` : une rediffusion
+reçue d'un inconnu ne peut contenir que des ordres de jeu. Le même lecteur sert à revoir une partie, au fantôme (une seconde
+simulation avancée au même pas que la vraie, dont on dessine les Bidules en transparence), au serveur (score du défi vérifié en
+rejouant) et aux tests de non-régression.
+
+Le **retour arrière** garde un instantané complet par seconde (12 au plus, soit une dizaine de Mo pour la plus grande carte).
+La détection de **blocage** retient les cases de 8 px déjà visitées par un Bidule : un Bidule qui fait des allers-retours n'en
+découvre plus, un creuseur, un bâtisseur ou un marcheur au long cours si.
+
 ## Limites connues
 
 * Pas de fluide : eau et lave sont statiques.
-* Réseau : un serveur, un processus ; les salons vivent en mémoire et sont perdus si le serveur redémarre. Pas de comptes ni de classement. Le brouillard de guerre est une règle d'affichage (voir plus haut). L'IA ne joue pas en ligne.
+* Réseau : un serveur, un processus ; les salons vivent en mémoire et sont perdus si le serveur redémarre. Pas de comptes : le classement du défi du jour se fait au nom choisi (pas de mot de passe). Le brouillard de guerre est une règle d'affichage (voir plus haut). L'IA ne joue pas en ligne.
 * Éditeur : une seule taille de carte (600 x 300), pas de décor ni de pièges posés à la main.
 * L'IA n'emploie ni tyrolienne, ni jetpack, ni grappin, ni char ; elle ne sait pas se sortir de tous les pièges que le
   sabotage crée (un pont détruit pendant la traversée coûte des Bidules).

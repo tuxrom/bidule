@@ -52,6 +52,18 @@ html, body {
   color: var(--accent); padding: 4px 10px; font-weight: bold; letter-spacing: .1em; display: none; pointer-events: none;
 }
 #pause-badge.show { display: block; }
+#assist {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); width: min(520px, calc(100% - 16px)); z-index: 5;
+  background: rgba(30,20,18,.94); border: 2px solid var(--accent); border-radius: 8px; padding: 8px 10px;
+}
+#assist p { margin: 0 0 6px; font-size: 13px; text-align: center; }
+#assist-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+#assist-btns .btn { flex: 1 1 auto; min-height: 40px; font-size: 13px; }
+#assist-btns [data-assist="close"] { flex: 0 0 40px; }
+.rate.locked { opacity: .4; pointer-events: none; }
+.board { margin: 8px 0; max-height: 40vh; overflow: auto; }
+.row .wide-input { flex: 2 1 140px; min-width: 0; }
+.board tr.me td { color: var(--accent); font-weight: bold; }
 
 /* ---------- Barre du bas ---------- */
 #bottombar {
@@ -59,11 +71,11 @@ html, body {
   padding: 6px calc(6px + var(--safe-r)) calc(6px + var(--safe-b)) calc(6px + var(--safe-l));
   display: flex; flex-wrap: wrap; gap: 6px;
 }
-#skillbar { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; flex: 1 1 100%; }
+#skillbar { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; flex: 1 1 100%; }
 #armbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 4px; flex: 1 1 100%; }
 #armbar[hidden], #skillbar[hidden] { display: none; }
 #toolbar { display: flex; gap: 4px; flex: 1 1 100%; align-items: stretch; }
-#toolbar .btn { flex: 1; }
+#toolbar .btn { flex: 1; min-width: 0; }
 
 .btn {
   font: inherit; color: var(--text); background: var(--panel-2); border: 2px solid var(--line); border-radius: 8px;
@@ -77,7 +89,7 @@ html, body {
 .btn.icon { min-height: 40px; min-width: 40px; flex: none; }
 .btn.tool { font-weight: bold; font-size: 16px; }
 
-.skill { position: relative; flex-direction: column; gap: 2px; padding: 3px 2px; min-height: 62px; }
+.skill { position: relative; flex-direction: column; gap: 2px; padding: 3px 2px; min-height: 62px; min-width: 0; overflow: hidden; }
 .skill canvas { width: 32px; height: 32px; image-rendering: pixelated; }
 .skill .lbl { font-size: 9px; line-height: 1; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .skill .cnt { position: absolute; top: 1px; right: 3px; font-size: 13px; font-weight: bold; color: var(--accent); }
@@ -111,6 +123,15 @@ html, body {
   #toolbar { flex: 1 1 46%; }
   .skill { min-height: 52px; } .skill canvas { width: 26px; height: 26px; } .skill .lbl { display: none; }
   .btn.icon { min-height: 32px; }
+  #toolbar .btn { padding: 0 2px; }
+  #toolbar .btn svg { width: 20px; height: 20px; }
+  .rate-val { flex: 1; }
+}
+/* Portrait étroit : annuler, revenir et éliminer passent sur une seconde ligne de la barre d'outils. */
+@media (max-width: 480px) and (orientation: portrait) {
+  #toolbar { flex-wrap: wrap; }
+  #toolbar::before { content: ''; flex-basis: 100%; order: 1; height: 0; margin-top: -4px; }
+  #btn-undo, #btn-rewind, #btn-kill { order: 2; min-height: 44px; }
 }
 @media (max-width: 420px) {
   .stat { padding: 0 3px; } .stat b { font-size: 13px; } .stat-name { display: none; }

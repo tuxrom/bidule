@@ -12,6 +12,7 @@
     "width": 900, "height": 480, "seed": 2002,
     "hatch": { "x": 60, "y": 165, "dir": 1 },
     "exit": { "x": 62, "y": 419 },
+    "plan": [{ "skill": "miner", "x0": 150, "x1": 159, "y": 199, "after": 100 }, { "skill": "blocker", "x0": 520, "x1": 540, "y": 419 }],
     "count": 25, "goal": 60, "timeLimit": 300,
     "rate": { "min": 20, "start": 35 },
     "skills": { "blocker": 3, "builder": 1, "digger": 1, "miner": 2, "floater": 2 },

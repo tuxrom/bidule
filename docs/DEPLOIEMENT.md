@@ -1,8 +1,10 @@
 # Guide de déploiement
 
 Le serveur est un seul processus Node qui sert **le jeu (fichiers statiques), le WebSocket (`/ws`) et l'API de niveaux
-(`/api/levels`)**. Il n'y a rien d'autre à installer, ni base de données : les salons vivent en mémoire, les niveaux partagés dans
-`DATA_DIR/levels.json`.
+(`/api/levels`), le classement du défi du jour (`/api/daily`) et les statistiques anonymes (`/api/stats`)**. Il n'y a rien d'autre
+à installer, ni base de données : les salons vivent en mémoire ; niveaux partagés, classements (30 jours) et statistiques dans
+`DATA_DIR/levels.json`, `daily.json` et `stats.json`. Chaque score envoyé est vérifié en rejouant la partie (environ 0,1 s de
+calcul, 10 envois par minute et par adresse au plus).
 
 ## En local
 

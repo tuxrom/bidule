@@ -11,6 +11,7 @@
     "width": 1200, "height": 480, "seed": 1001,
     "hatch": { "x": 110, "y": 305, "dir": 1 },
     "exit": { "x": 1060, "y": 339 },
+    "plan": [{ "skill": "builder", "x0": 444, "x1": 449, "y": 339 }, { "skill": "basher", "x0": 681, "x1": 700, "y": 339 }],
     "count": 20, "goal": 50, "timeLimit": 240,
     "rate": { "min": 20, "start": 40 },
     "skills": { "builder": 3, "basher": 3, "digger": 2, "floater": 2 },

@@ -47,6 +47,32 @@ ouvrir `index.html?debloquer`.
 * **Trois étoiles par niveau** : 1 pour l'objectif atteint, 2 à objectif + 20 points de pourcentage, 3 à objectif + 35
   points en moins de 75 % du temps. Meilleur score, étoiles et déblocages sont sauvegardés dans `localStorage`.
 
+### Aides et confort (solo)
+
+* **Tutoriel** des niveaux 1 à 3 : quand un Bidule approche d'un obstacle, un marqueur montre où donner quelle compétence, et la
+  bonne compétence est présélectionnée.
+* **Indice** (`I`, menu pause, ou bandeau d'aide) : la prochaine étape du plan de solution que tes ordres ne couvrent pas encore,
+  marquée sur la carte. **Voir la solution** : le robot des tests joue le niveau devant toi (rien n'est enregistré).
+* **« Ça tourne en rond »** : si plus aucun Bidule n'explore de nouvel endroit pendant 12 s, un bandeau propose indice,
+  retour 5 s, éliminer ou recommencer.
+* **Libérer un bloqueur** : toucher un bloqueur alors que la compétence choisie ne lui convient pas le fait repartir
+  (la compétence n'est pas rendue). **Éliminer** reste possible pour un Bidule vraiment coincé.
+* **Revenir 5 s en arrière** (bouton ⏪ ou `Retour arrière`), en plus de l'annulation du dernier ordre.
+* **Appui long** sur un Bidule (mobile) : sa fiche (état, parachute, grimpeur, briques restantes…).
+
+### Rediffusions, fantôme et défi du jour
+
+* **Rediffusions** : la simulation est déterministe, une partie se résume au niveau et à la liste des ordres (quelques centaines
+  d'octets). En fin de partie : **Revoir**, ou **Partager** un lien `…#replay=…` qui la rejoue chez n'importe qui.
+* **Fantôme** (`G`, menu pause) : les Bidules de ton meilleur passage gagnant du niveau défilent en transparence.
+* **Défi du jour** : un niveau généré à partir de la date, le même pour tout le monde, de difficulté variable (niveaux 11 à 30).
+  Le **classement** est tenu par le serveur, qui **rejoue chaque partie reçue** pour en vérifier le score : un client ne peut
+  pas annoncer un faux résultat.
+* **Lien de niveau** : l'éditeur donne un lien `…#niveau=NIVxxxx` (ou le code long) qui ouvre directement le niveau.
+* **Statistiques anonymes** : en fin de niveau de campagne (ou d'abandon), le jeu envoie au serveur qui le sert des compteurs
+  (résultat, % sauvés, causes de pertes, indice demandé) sans identifiant, adresse ni horodatage : `GET /api/stats` montre
+  où les joueurs échouent. Rien n'est envoyé en `file://` ni hors ligne.
+
 ### Contre l'ordinateur
 
 Deux armées, deux trappes aux extrémités d'une carte symétrique (moitié gauche tirée au sort, moitié droite en miroir
@@ -91,13 +117,17 @@ publication de niveaux demandent le serveur.
 | Canon : viser | toucher la carte, ou curseurs angle et puissance ; `Entrée` ou « Tirer » | idem |
 | Drone kamikaze | déplacer le curseur pour piloter ; clic ou `B` pour exploser | glisser le doigt ; « Détoner » |
 | Détoner mines et drone | `B` | bouton « Détoner » |
-| Éliminer un Bidule (bloqueur gênant, Bidule coincé) : gratuit, compte comme perdu | `X` ou `Suppr`, puis clic sur le Bidule | bouton tête de mort, puis appui sur le Bidule |
+| Libérer un bloqueur (il reprend sa marche) | clic sur le bloqueur (si la compétence choisie ne s'y applique pas) | appui sur le bloqueur |
+| Éliminer un Bidule (Bidule coincé) : gratuit, compte comme perdu | `X` ou `Suppr`, puis clic sur le Bidule | bouton tête de mort, puis appui sur le Bidule |
+| Indice / fantôme | `I` / `G` (aussi dans le menu pause) | menu pause |
+| Fiche d'un Bidule | survol | appui long |
 | Zoom | molette, `+` / `-` | pincement à deux doigts |
 | Défiler | glisser, flèches, `Maj` + molette | glissement à deux doigts |
 | Messages rapides (en ligne) | bouton 😀 | bouton 😀 |
 | Pause (hors ligne, les ordres restent possibles) | `P` ou `Espace` | bouton pause |
 | Vitesse x2 / x4 | boutons, `F` | boutons x2, x4 |
-| Annuler la dernière action (campagne) | `U` ou `Ctrl+Z` | bouton annuler |
+| Annuler la dernière action (solo) | `U` ou `Ctrl+Z` | bouton annuler |
+| Revenir 5 s en arrière (solo) | `Retour arrière` | bouton ⏪ |
 | Cadence de la trappe | `PgUp` / `PgDn` | boutons + et - |
 | Son, recommencer, menu | `M`, `R`, `Échap` | boutons |
 
@@ -199,21 +229,25 @@ css/style.css               interface (mobile d'abord) et variables de couleur p
 js/
   core/      constants.js (matériaux, constantes, équilibrage) rng.js mathx.js (trigonométrie déterministe)
   engine/    terrain.js (bitmap destructible, vue par camp)  simulation.js (monde, armées, commandes, fin de partie)
+             solver.js (robot qui joue le plan de solution : tests, indices, démonstration)  replay.js (rediffusions)
   bidules/   bidule.js (marche, chute, attente, noyade, sortie)
   skills/    registry.js + blocker builder digger miner basher floater bomber climber
   weapons/   registry.js + recon kdrone satellite cannon shield zipline jetpack grapple mine tank
   net/       netdef.js (version, partie, commandes, rôles : partagé avec le serveur)  netclient.js (session, lockstep)
   levels/    loader.js  level1-3.js (à la main)  generator.js (segments, cartes miroir)  campaign.js (40 niveaux, étoiles, sauvegarde)
+             daily.js (défi du jour)
   ai/        pathfinder.js (A* et simulations d'essai)  ai.js (contrôleur, trois profils, tactique des armes)
   render/    sprites.js themes.js camera.js particles.js renderer.js (entités, brouillard, thèmes)
   audio/     audio.js (effets, musique générative par univers)
   ui/        hud.js (compteurs, compétences, arsenal)  input.js (souris, molette, tactile, clavier)
   ui/        + online.js (salon, chat, résultats en ligne)  editor.js (éditeur et partage)
+  ui/        + assist.js (indices, tutoriel, blocage, retour arrière, rediffusions, fantôme, défi du jour, statistiques)
   pwa.js     service worker, installation, plein écran
   main.js    boucle, menus, visée des armes, résultats
 levels/      niveaux exportés en JSON (campagne complète, carte de duel)
-tests/       moteur, compétences, armes, campagne, IA (Node) et test de fumée navigateur
-tools/export-levels.js
+tests/       moteur, compétences, armes, campagne, rediffusions, IA (Node) et tests navigateur
+tests/replays/  rediffusions de référence (non-régression des règles)
+tools/export-levels.js  tools/record-replays.js
 docs/ARCHITECTURE.md
 ```
 
@@ -224,7 +258,11 @@ npm test                      # environ 3 minutes : moteur, 17 tests d'armes, 40
                               # réseau avec latence simulée, éditeur, PWA hors ligne (voir docs/PLAN-DE-TEST.md)
 npm run test:fast             # moteur seul, environ 30 secondes
 node tests/browser-smoke.js   # navigateur réel (nécessite Playwright) : menus, arsenal, duel jusqu'aux résultats
+node tests/browser-assist.js  # navigateur réel : tutoriel, bloqueur libéré, retour arrière, aides, démonstration, rediffusion, fantôme
 ```
+
+`tests/replays.test.js` rejoue les parties de `tests/replays/` et compare l'empreinte de l'état final : une modification qui change
+les règles sans le vouloir est détectée. Pour un changement voulu : incrémenter `Net.PROTOCOL`, puis `npm run record-replays`.
 
 ## Ajouter du contenu
 

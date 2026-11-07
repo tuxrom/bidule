@@ -1,5 +1,5 @@
 /* Fichier généré par tools/build-pwa.js : ne pas modifier à la main. */
-self.VERSION = '15eb34d5ba';
+self.VERSION = 'dc524adeaf';
 self.ASSETS = [
   "./",
   "index.html",
@@ -39,10 +39,13 @@ self.ASSETS = [
   "js/levels/level3.js",
   "js/levels/generator.js",
   "js/engine/simulation.js",
+  "js/engine/solver.js",
   "js/levels/campaign.js",
+  "js/levels/daily.js",
   "js/ai/pathfinder.js",
   "js/ai/ai.js",
   "js/net/netdef.js",
+  "js/engine/replay.js",
   "js/net/netclient.js",
   "js/render/sprites.js",
   "js/render/themes.js",
@@ -54,6 +57,7 @@ self.ASSETS = [
   "js/ui/input.js",
   "js/ui/online.js",
   "js/ui/editor.js",
+  "js/ui/assist.js",
   "js/pwa.js",
   "js/main.js",
   "icons/icon-192.png",

@@ -131,6 +131,13 @@
           NS.Physics.die(b, this, 'dismiss', -1);
           return true;
         }
+        case 'release': {           // libérer un de ses bloqueurs : il reprend sa marche (la compétence n'est pas rendue)
+          const b = this.bidules.find((x) => x.id === cmd.id);
+          if (!this.canRelease(b, p.id)) return false;
+          b.state = 'walk'; b.t = 0;
+          this.emit('release', b.x, b.y, b.owner);
+          return true;
+        }
         case 'rate': {
           const v = Math.max(p.rateMin, Math.min(C.RATE_MAX, cmd.value | 0));
           if (v === p.rate) return false;
@@ -173,6 +180,11 @@
     canDismiss(b, owner) {
       return !!b && this.status === 'running' && b.owner === owner &&
         b.state !== 'dead' && b.state !== 'saved' && b.state !== 'rider';
+    }
+
+    /** Ce Bidule est-il un bloqueur que son propriétaire peut libérer ? */
+    canRelease(b, owner) {
+      return !!b && this.status === 'running' && b.owner === owner && b.state === 'block';
     }
 
     /** Motif pour lequel l'arme ne peut pas partir, ou null si elle le peut. */

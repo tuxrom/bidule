@@ -1,0 +1,1 @@
+{"v":1,"p":3,"ref":{"k":"campaign","i":11},"log":[[0,"rate",55],[108,"assign",1,"builder"],[493,"assign",1,"miner"],[600,"weapon","recon"],[1162,"assign",1,"builder"]],"expect":{"status":"won","saved":25,"tick":2205,"hash":3535197785}}

@@ -15,6 +15,7 @@
     mute: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM17 9l4 6M21 9l-4 6"/></svg>',
     sound: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16 8c2 2 2 6 0 8M19 5c4 4 4 10 0 14"/></svg>',
     menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    rewind: '<svg viewBox="0 0 24 24"><path d="M11 6l-7 6 7 6zM20 6l-7 6 7 6z"/></svg>',
     kill: '<svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="6"/><path d="M9 20h6M10 16v4M14 16v4M10 9h.01M14 9h.01"/></svg>'
   };
 
@@ -29,6 +30,7 @@
       $('btn-undo').innerHTML = ICONS.undo;
       $('btn-menu').innerHTML = ICONS.menu;
       $('btn-kill').innerHTML = ICONS.kill;
+      $('btn-rewind').innerHTML = ICONS.rewind;
       this.setMuted(false);
       this.setPaused(false);
     }
@@ -155,6 +157,9 @@
       }
       $('btn-undo').disabled = !ui.canUndo;
       $('btn-undo').hidden = !ui.undoable;
+      $('btn-rewind').disabled = !ui.canRewind;
+      $('btn-kill').hidden = !!ui.watching;
+      $('btn-rate-dec').parentElement.classList.toggle('locked', !!ui.watching);
       $('btn-kill').classList.toggle('on', !!ui.kill);
       $('btn-kill').setAttribute('aria-pressed', String(!!ui.kill));
       $('btn-rate-dec').disabled = me.rate <= me.rateMin;

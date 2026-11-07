@@ -168,6 +168,7 @@
           else if (ev.extra === 'zipline' || ev.extra === 'mine') this.sfx('brick');
           break;
         case 'saved': this.sfx('saved', 0.08); break;
+        case 'release': this.sfx('select'); break;
         case 'die':
           if (ev.extra === 'splat') this.sfx('splat', 0.08);
           else if (ev.extra === 'drown') this.sfx('drown', 0.08);

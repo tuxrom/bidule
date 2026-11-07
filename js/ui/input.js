@@ -7,7 +7,8 @@
  * Tactile : un appui = appliquer ; deux doigts = pincer pour zoomer et
  *           glisser pour défiler (un doigt seul ne déplace jamais la carte, ce
  *           qui évite les mauvaises manipulations).
- * Clavier : chiffres 1 à 8 (compétences) ou 1 à 0 (arsenal), Tab, Entrée, B (détoner), X (éliminer), etc. (event.code pour les
+ * Appui long (doigt, 550 ms sans bouger) : fiche du Bidule touché.
+ * Clavier : chiffres 1 à 8 (compétences) ou 1 à 0 (arsenal), Tab, Entrée, B (détoner), X (éliminer), I (indice), Retour arrière (5 s), etc. (event.code pour les
  *           chiffres, afin de fonctionner aussi sur AZERTY sans Maj).
  */
 (function (G) {
@@ -16,6 +17,7 @@
 
   const TAP_SLOP = 8;       // déplacement maximal (px) d'un appui pour rester un "tap"
   const TAP_TIME = 600;     // durée maximale (ms) d'un appui
+  const LONG_PRESS = 550;   // appui long (doigt) : fiche du Bidule
 
   class Input {
     constructor(game, canvas) {
@@ -57,6 +59,13 @@
       if (this.pointers.size === 2) {
         this.gestured = true;
         this.gesture = this.measure();
+      }
+      clearTimeout(this.longTimer);
+      if (e.pointerType !== 'mouse' && this.pointers.size === 1) {
+        const ptr = this.pointers.get(e.pointerId);
+        this.longTimer = setTimeout(() => {
+          if (this.pointers.size === 1 && this.pointers.get(e.pointerId) === ptr && !ptr.moved) { ptr.long = true; this.game.inspect(ptr.x, ptr.y); }
+        }, LONG_PRESS);
       }
     }
 
@@ -101,7 +110,7 @@
         this.gestured = false;
         const quick = performance.now() - ptr.t0 < TAP_TIME;
         if (wasGesture) this.game.cam.snap(this.game.renderer.dpr);
-        else if (!ptr.moved && quick && ptr.button === 0) this.game.tap(ptr.x, ptr.y, ptr.type !== 'mouse');
+        else if (!ptr.moved && quick && !ptr.long && ptr.button === 0) this.game.tap(ptr.x, ptr.y, ptr.type !== 'mouse');
       }
     }
 
@@ -144,6 +153,9 @@
         case 'u': case 'U': g.undo(); break;
         case 'b': case 'B': g.detonate(); break;
         case 'x': case 'X': case 'Delete': g.toggleKill(); break;
+        case 'Backspace': e.preventDefault(); g.rewind(); break;
+        case 'i': case 'I': g.hint(); break;
+        case 'g': case 'G': g.toggleGhost(); break;
         case 'm': case 'M': g.toggleMute(); break;
         case 'r': case 'R': g.restart(); break;
         case 'h': case 'H': case '?': g.showHelp(); break;

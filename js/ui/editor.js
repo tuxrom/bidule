@@ -54,7 +54,7 @@
         '<label>Temps (s) <input id="ed-time" type="number" min="30" max="900" value="' + ed.time + '"></label></div>' +
         '<div class="row"><button class="btn" data-action="ed" data-arg="undo">Annuler</button><button class="btn" data-action="ed" data-arg="clear">Nouveau</button>' +
         '<button class="btn primary" data-action="ed" data-arg="test">Tester</button></div>' +
-        '<div class="row"><button class="btn" data-action="ed" data-arg="copy">Copier le code</button><button class="btn" data-action="ed" data-arg="publish">Publier (code court)</button></div>' +
+        '<div class="row"><button class="btn" data-action="ed" data-arg="copy">Copier le code</button><button class="btn" data-action="ed" data-arg="publish">Publier (code court)</button><button class="btn" data-action="ed" data-arg="link">Copier le lien</button></div>' +
         '<div class="row"><input id="ed-code" class="wide-input" placeholder="Coller un code de niveau ou NIV…"><button class="btn" data-action="ed" data-arg="load">Charger</button></div>' +
         '<div id="ed-msg" class="netstate"></div><div class="row"><button class="btn" data-action="title">Retour</button></div></div>');
       this.edBind();
@@ -128,8 +128,8 @@
         case 'test': {
           const d = this.edDef(), t = { data: ed.data };
           if (ed.data[ed.hatch.y * W + ed.hatch.x] === M.SAND || ed.data[ed.hatch.y * W + ed.hatch.x] === M.ROCK) return this.edMsg('La trappe est dans la matière : place-la dans le vide.');
-          const def = NS.Loader.decodeLevel(NS.Loader.encodeLevel(d, t));       // exactement ce que verrait quelqu'un qui recevrait le code
-          this.startCustom(def);
+          const code = NS.Loader.encodeLevel(d, t);
+          this.startCustom(NS.Loader.decodeLevel(code), code);                 // exactement ce que verrait quelqu'un qui recevrait le code
           break;
         }
         case 'copy': {
@@ -151,6 +151,13 @@
           } catch (e) { this.edMsg('Publication impossible : ' + e.message); }
           break;
         }
+        case 'link': {                                         // lien direct : …#niveau=NIVxxxx si publié, sinon le code long
+          const typed = ($('ed-code').value || '').trim();
+          const ref = /^NIV[0-9A-Z]{3,9}$/i.test(typed) ? typed.toUpperCase() : NS.Loader.encodeLevel(this.edDef(), { data: ed.data });
+          this.shareLink('niveau=' + ref, 'du niveau');
+          this.edMsg(ref.startsWith('NIV') ? 'Lien court copié.' : 'Lien copié (publie d\'abord le niveau pour un lien court).');
+          break;
+        }
         case 'load': {
           let code = ($('ed-code').value || '').trim();
           try {
@@ -168,7 +175,7 @@
             ed.hatch = { x: def.hatch.x, y: def.hatch.y, dir: 1 }; ed.exit = { x: def.exit.x, y: def.exit.y };
             this.showEditor(); this.edMsg('Niveau chargé.');
           } catch (e) {
-            try { const def = NS.Loader.decodeLevel(code); this.startCustom(def); } catch (e2) { this.edMsg('Chargement impossible : ' + e.message); }
+            try { const def = NS.Loader.decodeLevel(code); this.startCustom(def, code); } catch (e2) { this.edMsg('Chargement impossible : ' + e.message); }
           }
           break;
         }
@@ -176,8 +183,9 @@
     };
 
     /** Joue un niveau issu d'un code (test depuis l'éditeur ou niveau reçu). */
-    P.startCustom = function (def) {
+    P.startCustom = function (def, code) {
       this.customDef = def;
+      this.customCode = code || null;          // pour les rediffusions (référence du niveau)
       this.ai = null;
       this.begin(def, 'custom');
       this.hud.toast(def.name + ' : ' + def.count + ' Bidules, objectif ' + def.goal + '%.', 4000);

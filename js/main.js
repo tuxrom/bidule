@@ -72,11 +72,13 @@
       this.slowFrames = 0;
 
       this.bindUI();
+      this.assistInit();
       this.hud.setMuted(this.audio.muted);
       new ResizeObserver(() => this.onResize()).observe($('stage'));
       document.addEventListener('visibilitychange', () => { if (document.hidden && this.sim && !this.overlayOpen) this.setPaused(true); });
       this.onResize();
       this.showTitle();
+      this.openDeepLink();
       requestAnimationFrame((t) => this.frame(t));
     }
 
@@ -106,6 +108,7 @@
       $('btn-x4').onclick = () => this.setSpeed(this.speed === 4 ? 1 : 4);
       $('btn-undo').onclick = () => this.undo();
       $('btn-kill').onclick = () => { this.audio.unlock(); this.toggleKill(); };
+      $('btn-rewind').onclick = () => this.rewind();
       $('btn-mute').onclick = () => { this.audio.unlock(); this.toggleMute(); };
       $('btn-menu').onclick = () => this.toggleMenu();
       $('btn-rate-dec').onclick = () => this.adjustRate(-5);
@@ -138,11 +141,12 @@
         case 'play': this.startCampaign(Number(arg)); break;
         case 'vs': this.startVS(arg); break;
         case 'next': this.startCampaign(this.levelIndex + 1); break;
-        case 'retry': if (this.kind === 'vs') this.startVS(this.vsDifficulty); else if (this.kind === 'custom') this.startCustom(this.customDef); else this.startCampaign(this.levelIndex); break;
+        case 'retry': this.again(); break;
         case 'resume': this.closeOverlay(); break;
         case 'help': this.showHelp(); break;
-        case 'title': this.showTitle(); break;
+        case 'title': this.assistLeave(); this.statSent = true; this.showTitle(); break;
         case 'reset': if (confirm('Effacer toute la progression ?')) { NS.Campaign.Save.reset(); this.showCampaign(0); } break;
+        default: this.assistAction(name, arg);
       }
     }
 
@@ -150,6 +154,8 @@
 
     /** Installe une simulation : caméra, interface, musique. */
     begin(def, kind, sim, me) {
+      this.assistLeave();
+      this.driver = null;                // pilote automatique (rediffusion, démonstration)
       this.kind = kind;
       this.me = me | 0;
       this.sim = sim || new NS.Simulation(def);
@@ -189,6 +195,8 @@
       this.closeOverlay();
       this.audio.unlock();
       this.audio.startMusic(def.theme);
+      $('btn-rewind').hidden = !this.solo();
+      this.assistBegin();
     }
 
     startCampaign(i) {
@@ -217,7 +225,19 @@
 
     restart() {
       if (!this.sim || this.kind === 'net' || this.kind === 'net-over') return;
-      if (this.kind === 'vs') this.startVS(this.vsDifficulty); else if (this.kind === 'custom') this.startCustom(this.customDef); else this.startCampaign(this.levelIndex);
+      this.again();
+    }
+
+    /** Recommence la même partie (même niveau, même mode). */
+    again() {
+      switch (this.kind) {
+        case 'vs': return this.startVS(this.vsDifficulty);
+        case 'custom': return this.startCustom(this.customDef, this.customCode);
+        case 'daily': return this.startDaily();
+        case 'replay': return this.startReplay(this.watchFrom.code);
+        case 'demo': return this.startDemo();
+        default: return this.startCampaign(this.levelIndex);
+      }
     }
 
     /* ---------------------------------- Sélections --------------------------------- */
@@ -251,6 +271,7 @@
     }
 
     selectWeapon(id) {
+      if (this.watching()) return;
       const sim = this.sim, p = sim.players[this.me], w = NS.Weapons.byId[id], slot = p.weapons[id];
       this.audio.unlock();
       if (this.barredWeapon(id)) return this.refuse('Arme de ton partenaire');
@@ -268,7 +289,7 @@
 
     /** Bouton Éliminer : le prochain Bidule touché disparaît (bloqueur devenu gênant, Bidule coincé). Un seul à la fois. */
     toggleKill() {
-      if (!this.sim || this.overlayOpen || this.sim.status !== 'running') return;
+      if (!this.sim || this.overlayOpen || this.sim.status !== 'running' || this.watching()) return;
       this.killMode = !this.killMode;
       if (this.killMode) {
         if (this.tab !== 'skills') { this.tab = 'skills'; this.tgt = null; this.hud.setTab('skills'); this.hud.showAim(false); }
@@ -289,22 +310,20 @@
     zoomStep(f) { this.cam.zoomAt(this.cam.vw / 2, this.cam.vh / 2, this.cam.zoom * f); this.cam.snap(this.renderer.dpr); }
 
     adjustRate(d) {
-      if (!this.sim || this.overlayOpen) return;
+      if (!this.sim || this.overlayOpen || this.watching()) return;
       this.send({ type: 'rate', value: this.sim.players[this.me].rate + d });
     }
 
     /** Annule la dernière compétence ou arme (solo uniquement) : retour exact à l'état d'avant l'ordre. */
     undo() {
-      if (!this.sim || this.overlayOpen || this.kind !== 'campaign' || !this.undoStack.length) return;
+      if (!this.sim || this.overlayOpen || !this.solo() || !this.undoStack.length) return;
       this.sim.restore(this.undoStack.pop());
-      this.renderer.invalidate(this.sim.terrain);
-      this.fx.clear();
-      this.acc = 0;
+      this.timeTravelled();
       this.hud.toast('Dernière action annulée', 1200);
     }
 
     pushUndo() {
-      if (this.kind !== 'campaign') return;
+      if (!this.solo()) return;
       this.undoStack.push(this.sim.snapshot());
       if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();
     }
@@ -323,7 +342,7 @@
     /** Tire une arme du joueur : en solo l'instantané d'annulation n'est gardé que si l'ordre réussit. */
     fire(cmd) {
       const sim = this.sim;
-      if (!sim || this.overlayOpen || sim.status !== 'running') return false;
+      if (!sim || this.overlayOpen || sim.status !== 'running' || this.watching()) return false;
       cmd.type = 'weapon';
       if (this.kind === 'net') {                    // contrôle local d'abord : refus immédiat plutôt qu'un ordre perdu
         const why = sim.weaponBlock(sim.players[this.me], cmd.weapon, cmd);
@@ -332,7 +351,7 @@
         this.audio.sfx('select');
         return true;
       }
-      const snap = this.kind === 'campaign' ? sim.snapshot() : null;
+      const snap = this.solo() ? sim.snapshot() : null;
       cmd.player = this.me;
       if (!sim.issue(cmd)) { this.refuse(sim.denied || 'Impossible'); return false; }
       if (snap) { this.undoStack.push(snap); if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift(); }
@@ -349,7 +368,7 @@
 
     /** Fait sauter mines et drone du joueur. */
     detonate() {
-      if (!this.sim || this.overlayOpen) return;
+      if (!this.sim || this.overlayOpen || this.watching()) return;
       if (this.send({ type: 'detonate' })) this.flushEvents();
     }
 
@@ -372,6 +391,7 @@
 
     tap(sx, sy, touch) {
       if (!this.sim || this.overlayOpen || this.sim.status !== 'running') return;
+      if (this.watching()) { this.hud.toast(this.kind === 'demo' ? 'Démonstration en cours : Menu > « À moi de jouer » pour reprendre la main.' : 'Rediffusion : les ordres sont rejoués, tu ne peux pas intervenir.', 2400); return; }
       const w = this.cam.screenToWorld(sx, sy);
       this.ptr = w;
       if (this.killMode) {
@@ -385,10 +405,19 @@
       }
       if (this.tab === 'arms') { if (this.weapon) this.weaponTap(w, sx, sy, touch); return; }
       const b = this.pickOwn(sx, sy, touch, this.skill);
-      if (!b || !this.skill) return;
+      if (!b) return;
+      // Un bloqueur touché (sans compétence applicable) est libéré : il reprend sa marche.
+      if (this.sim.canRelease(b, this.me) && !(this.skill && this.sim.canAssign(b, this.skill))) {
+        if (this.barredSkill('blocker')) { this.refuse('Bloqueurs de ton partenaire'); return; }
+        this.pushUndo();
+        if (this.send({ type: 'release', id: b.id }) !== false) this.hud.toast('Bloqueur libéré : il reprend sa marche.', 1600);
+        this.flushEvents();
+        return;
+      }
+      if (!this.skill) return;
       if (!this.sim.canAssign(b, this.skill) || this.barredSkill(this.skill)) { this.audio.sfx('deny'); return; }
       this.pushUndo();
-      this.send({ type: 'assign', id: b.id, skill: this.skill });
+      if (this.send({ type: 'assign', id: b.id, skill: this.skill })) this.noteOrder(this.skill, b);
       this.flushEvents();
     }
 
@@ -451,6 +480,7 @@
     /** Aperçus dessinés dans le monde : trajectoire du canon, câble, portée du bouclier... */
     overlay(ctx, s) {
       const sim = this.sim, p = sim.players[this.me];
+      if (!this.overlayOpen) this.drawHints(ctx, s);
       if (this.tab !== 'arms' || !this.weapon || this.overlayOpen) return;
       const lw = 1 / s * this.renderer.dpr;
       ctx.lineWidth = lw;
@@ -522,13 +552,16 @@
         let n = 0;
         while (this.acc >= STEP && n < MAX_STEPS_PER_FRAME && sim.status === 'running') {
           if (this.ai) this.ai.update();           // l'IA joue avant chaque pas, par les mêmes commandes
+          this.assistBeforeStep();                 // rediffusion ou démonstration : mêmes commandes encore
           sim.step();
           this.flushEvents();
+          this.assistAfterStep();
           this.acc -= STEP;
           n++;
         }
         if (n === MAX_STEPS_PER_FRAME) this.acc = 0;
         this.fx.update(dt * this.speed);
+        this.assistFrame(dt, n);
       } else if (sim.status !== 'running') {
         this.flushEvents();
         this.fx.update(dt);
@@ -536,12 +569,12 @@
 
       const me = sim.players[this.me];
       this.renderer.draw(sim, this.fx, {
-        me: this.me, time: this.time, hoverId: this.hoverId, hoverOk: this.hoverOk,
+        me: this.me, time: this.time, hoverId: this.hoverId, hoverOk: this.hoverOk, ghosts: this.ghostBidules(),
         aimAngle: this.tab === 'arms' && this.weapon === 'cannon' ? this.aim.angle : null,
         overlay: (ctx, s) => this.overlay(ctx, s)
       });
       this.hud.update(sim, {
-        me: this.me, tab: this.tab, skill: this.skill, kill: this.killMode, weapon: this.weapon, canUndo: this.undoStack.length > 0, undoable: this.kind === 'campaign',
+        me: this.me, tab: this.tab, skill: this.skill, kill: this.killMode, weapon: this.weapon, canUndo: this.undoStack.length > 0, undoable: this.solo(), canRewind: !!(this.ring && this.ring.length && sim.tick > 15), watching: this.watching(),
         mask: this.coopMask(),
         canBoom: sim.entities.some((e) => e.owner === this.me && (e.kind === 'mine' || e.kind === 'drone'))
       });
@@ -583,6 +616,7 @@
         'Débloque un arsenal moderne au fil de la campagne, ou affronte l\'ordinateur sur une carte symétrique.</p>' +
         '<div class="menu-grid">' +
         '<button class="btn primary" data-action="campaign">Campagne<small>40 niveaux, 4 univers, 3 étoiles par niveau (' + st + '/120)</small></button>' +
+        '<button class="btn" data-action="daily">Défi du jour<small>Le même niveau pour tout le monde, avec classement</small></button>' +
         '<button class="btn" data-action="versus">Contre l\'ordinateur<small>Deux armées, une carte miroir, un arsenal identique</small></button>' +
         '<button class="btn" data-action="online">En ligne<small>Duel à deux, ou coopération sur une même armée</small></button>' +
         '<button class="btn" data-action="editor">Éditeur de niveaux<small>Dessine, teste et partage par code</small></button>' +
@@ -624,9 +658,17 @@
         return this.openOverlay('<div class="card"><h2>Partie en ligne</h2><p>La partie continue pour tout le monde pendant que ce menu est ouvert.</p>' +
           '<div class="row"><button class="btn primary" data-action="resume">Reprendre</button><button class="btn" data-action="net" data-arg="resign">Abandonner</button></div></div>');
       }
+      if (this.watching()) {
+        return this.openOverlay('<div class="card"><h2>' + (this.kind === 'demo' ? 'Démonstration' : 'Rediffusion') + '</h2><p>' + this.sim.def.name + '</p>' +
+          '<div class="row"><button class="btn primary" data-action="resume">Reprendre</button><button class="btn" data-action="play-watched">À moi de jouer</button>' +
+          '<button class="btn" data-action="retry">Depuis le début</button><button class="btn" data-action="title">Menu principal</button></div></div>');
+      }
+      const plan = this.solo() && this.sim.def.plan, ghostable = this.kind === 'campaign' || this.kind === 'daily';
       this.openOverlay('<div class="card"><h2>Pause</h2><p>' + this.sim.def.name + '</p>' +
         '<div class="row"><button class="btn primary" data-action="resume">Reprendre</button>' +
         '<button class="btn" data-action="retry">Recommencer</button>' +
+        (plan ? '<button class="btn" data-action="hint">Indice</button><button class="btn" data-action="demo">Voir la solution</button>' : '') +
+        (ghostable ? '<button class="btn" data-action="ghost">Fantôme : ' + (this.ghostOn ? 'oui' : 'non') + '</button>' : '') +
         '<button class="btn" data-action="help">Commandes</button>' +
         '<button class="btn" data-action="title">Menu principal</button></div></div>');
     }
@@ -642,7 +684,10 @@
         '<kbd>X / Suppr</kbd><span>Éliminer un Bidule (puis le toucher)</span>' +
         '<kbd>P / Espace</kbd><span>Pause (ordres possibles en pause)</span>' +
         '<kbd>F</kbd><span>Vitesse x1, x2, x4</span>' +
-        '<kbd>U / Ctrl+Z</kbd><span>Annuler (campagne)</span>' +
+        '<kbd>U / Ctrl+Z</kbd><span>Annuler (solo)</span>' +
+        '<kbd>Retour arrière</kbd><span>Revenir 5 s en arrière (solo)</span>' +
+        '<kbd>I</kbd><span>Indice : où placer la prochaine compétence</span>' +
+        '<kbd>G</kbd><span>Fantôme de ton meilleur passage</span>' +
         '<kbd>Molette</kbd><span>Zoom (Maj + molette : défiler)</span>' +
         '<kbd>Glisser</kbd><span>Déplacer la carte</span>' +
         '<kbd>Flèches</kbd><span>Défiler</span>' +
@@ -650,7 +695,8 @@
         '<kbd>M</kbd><span>Couper le son</span>' +
         '<kbd>R</kbd><span>Recommencer</span>' +
         '<kbd>Échap</kbd><span>Menu</span></div>' +
-        '<p>Sur mobile : un appui applique la compétence ou vise l\'arme, deux doigts pincent pour zoomer et glissent pour défiler.</p>' +
+        '<p>Un bloqueur touché alors qu\'aucune compétence ne lui convient est libéré : il reprend sa marche (la compétence n\'est pas rendue).</p>' +
+        '<p>Sur mobile : un appui applique la compétence ou vise l\'arme, un appui long affiche la fiche du Bidule, deux doigts pincent pour zoomer et glissent pour défiler.</p>' +
         '<div class="row"><button class="btn primary" data-action="' + back + '">' + (this.sim ? 'Retour au jeu' : 'Retour') + '</button></div></div>');
     }
 
@@ -660,6 +706,10 @@
     }
 
     showResult() {
+      if (this.watching()) return this.showWatchResult();
+      if (this.solo()) this.keepReplay();
+      if (this.kind === 'campaign' || this.kind === 'daily') this.sendStats(this.sim.status === 'won' ? 'won' : 'lost');
+      if (this.kind === 'daily') return this.showDailyResult();
       if (this.kind === 'custom') return this.showCustomResult();
       const sim = this.sim, me = sim.players[0], won = sim.status === 'won';
       const elapsed = fmtTime(sim.tick);
@@ -706,6 +756,8 @@
           '<div class="stars-help"><small>★ objectif atteint, ★★ objectif + 20 points, ★★★ objectif + 35 points en moins de 75 % du temps.</small></div>' +
           '<div class="row">' + (next ? '<button class="btn primary" data-action="next">Niveau suivant</button>' : '') +
           '<button class="btn' + (next ? '' : ' primary') + '" data-action="retry">Rejouer</button>' +
+          '<button class="btn" data-action="watch">Revoir</button><button class="btn" data-action="share-replay">Partager</button>' +
+          (!won && sim.def.plan ? '<button class="btn" data-action="demo">Voir la solution</button>' : '') +
           '<button class="btn" data-action="campaign" data-arg="' + Math.floor(this.levelIndex / per) + '">Niveaux</button></div></div>';
       }
       this.openOverlay(html);
@@ -715,5 +767,6 @@
   NS.OnlineUI.install(Game);
   NS.EditorUI.install(Game);
   NS.PWA.install(Game);
+  NS.AssistUI.install(Game);
   window.addEventListener('DOMContentLoaded', () => { window.game = new Game(); });
 })(window);
